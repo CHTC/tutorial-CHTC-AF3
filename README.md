@@ -84,8 +84,8 @@ This tutorial assumes that you:
 > [!WARNING]
 > Requesting AlphaFold3 model weights requires agreeing to DeepMind's terms of service. Ensure you comply with all licensing and usage restrictions when using AF3 for research. This tutorial does not distribute AF3 model weights. Requesting the weights can take up to several weeks. Ensure you have them before starting the tutorial.
 
-Log into your CHTC account:
-
+1. Log into your CHTC account:
+    
     ```bash
     ssh user.name@ap##.uw.osg-htc.org
     ```
@@ -162,11 +162,13 @@ CHTC maintains a shared Apptainer container for AlphaFold3, which we **highly re
 
 <details>
 <summary>Click to expand: Building Your Own AlphaFold3 Apptainer Container (Advanced)</summary>
-1. On your local machine, clone the AlphaFold3 repository:
 
+1. On your local machine, clone the AlphaFold3 repository:
+    
     ```bash
     git clone https://github.com/google-deepmind/alphafold3.git
     ```
+
 2. Navigate to the `alphafold3/` directory:
 
     ```bash
@@ -324,7 +326,7 @@ requirements = (HasAlphafold3 == true)
 
     CHTC hosts a copy of the AlphaFold3 databases locally on certain machines. Machines with these databases advertise this resource availability using the `HasAlphafold3` HTCondor MachineAd. The script is able to run on machines with/without these databases pre-loaded. The script inspects `.machine.ad` to see whether the matched machine advertises the availbility of AF3 databases:
     
-    ```
+    ```bash
     HasAlphafold3 = true
     ```
     
@@ -363,7 +365,7 @@ requirements = (HasAlphafold3 == true)
     
     Creates:
     
-    ```
+    ```bash
     work.<ext>/
         af_input/
         af_output/
@@ -378,7 +380,7 @@ requirements = (HasAlphafold3 == true)
     
     Inside the container:
     
-    ```
+    ```bash
     python run_alphafold.py --run_data_pipeline=true --run_inference=false
     ```
     
@@ -388,7 +390,7 @@ requirements = (HasAlphafold3 == true)
     
     Each output directory is archived:
     
-    ```
+    ```bash
     <target>.data_pipeline.tar.gz
     ```
     
@@ -451,19 +453,19 @@ The script will also check the matched machine's MachineAd, after the job has ma
 
 4. Submit your data-pipeline jobs:
 
-    ```
+    ```bash
    condor_submit scripts/data_pipeline.sub
    ```
 
-    > [!TIP]  
-    > You can test the data pipeline using reduced-size databases by defining the `USE_SMALL_DB=1` variable when submitting your jobs. This is useful for debugging and testing purposes, as it reduces resource requirements and speeds up job execution. To use the small database set, submit your jobs with the following command: 
-    > ```
-    > condor_submit USE_SMALL_DB=1 data_pipeline.sub
-    > ```
+> [!TIP]  
+> You can test the data pipeline using reduced-size databases by defining the `USE_SMALL_DB=1` variable when submitting your jobs. This is useful for debugging and testing purposes, as it reduces resource requirements and speeds up job execution. To use the small database set, submit your jobs with the following command: 
+> ```bash
+> condor_submit USE_SMALL_DB=1 data_pipeline.sub
+> ```
 
 5. Track your job progress:
 
-    ```
+    ```bash
    condor_watch_q
    ```
 
@@ -504,7 +506,7 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
 
     The script allows users to specify a model file using:
 
-    ```
+    ```bash
     --model_param_file <name_of_model_weights_file.zst>
     ```
 
@@ -526,7 +528,7 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
 
     Creates:
 
-    ```
+    ```bash
     work.<ext>/
         af_input/
         af_output/
@@ -536,7 +538,7 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
 
     The inference stage expects the output from the data pipeline in the form of:
 
-    ```
+    ```bash
     *.data_pipeline.tar.gz
     ```
 
@@ -547,11 +549,11 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
     Valid model weights may be provided in either uncompressed or `.zst` form. The script handles both:
 
     - If compressed:  
-      ```
+      ```bash
       zstd --decompress > models/af3.bin
       ```
     - If uncompressed:  
-      ```
+      ```bash
       cp af3.bin models/
       ```
 
@@ -559,7 +561,7 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
 
     The script inspects the GPU compute capability using:
 
-    ```
+    ```bash
     python -c "import jax; print(jax.local_devices(backend='gpu')[0].compute_capability)"
     ```
 
@@ -574,13 +576,13 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
 
     Inside the container, the script executes:
 
-    ```
+    ```bash
     python run_alphafold.py  --run_data_pipeline=false --run_inference=true --input_dir=/root/af_input --model_dir=/root/models --output_dir=/root/af_output
     ```
 
     Users may append custom AF3 flags through:
 
-    ```
+    ```bash
     --user_specified_alphafold_options "<options>"
     ```
    
@@ -600,7 +602,7 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
 
     Each prediction directory under `af_output/` is archived:
 
-    ```
+    ```bash
     <target>.inference_pipeline.tar.gz
     ```
 
@@ -677,22 +679,20 @@ You can generally estimate number of tokens as approximately equivalent to 1.2x 
 
 For very large complexes exceeding 10k tokens, you may need to enable unified memory mode using the `--enable_unified_memory` flag in the executable script. This allows AlphaFold3 to utilize system RAM in addition to GPU memory, which can help accommodate larger models. However, it may also lead to **significantly slower performance** due to increased data transfer times between system RAM and GPU memory. You will also need to ensure that the execute node has sufficient system RAM to support unified memory mode by increasing the `request_memory` attribute in your submit file. We recommend reaching out to the CHTC Research Computing Facilitation team for assistance with very large complexes.
 
-    > [!TIP]  
-    > CHTC has a number of smaller RTX series GPUs (e.g., RTX 4000, RTX 5000) with only 8-16GB of GPU memory. If your job requires less than 10GB of GPU memory, you can set `gpus_minimum_memory = 10000` in your submit file to allow your jobs to match to these smaller GPUs. This can help increase the number of available machines for your jobs, leading to faster start times.
-    > 
-    > If your jobs require more GPU memory than is available on these smaller GPUs, you can adjust the `gpus_minimum_memory` attribute in your submit file to request machines with larger GPUs (e.g., A100, V100). For example, to request machines with at least 32GB of GPU memory, you can set `gpus_minimum_memory = 32000` in your submit file. This will help ensure that your jobs are matched to machines with sufficient GPU memory to run successfully.
-
-```bash
+> [!TIP]  
+> CHTC has a number of smaller RTX series GPUs (e.g., RTX 4000, RTX 5000) with only 8-16GB of GPU memory. If your job requires less than 10GB of GPU memory, you can set `gpus_minimum_memory = 10000` in your submit file to allow your jobs to match to these smaller GPUs. This can help increase the number of available machines for your jobs, leading to faster start times.
+> 
+> If your jobs require more GPU memory than is available on these smaller GPUs, you can adjust the `gpus_minimum_memory` attribute in your submit file to request machines with larger GPUs (e.g., A100, V100). For example, to request machines with at least 32GB of GPU memory, you can set `gpus_minimum_memory = 32000` in your submit file. This will help ensure that your jobs are matched to machines with sufficient GPU memory to run successfully.
 
 4. Submit your data-pipeline jobs:
 
-    ```
+    ```bash
    condor_submit scripts/inference_pipeline.sub
    ```
 
 5. Track your job progress:
 
-    ```
+    ```bash
    condor_watch_q
    ```
 
