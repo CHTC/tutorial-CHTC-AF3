@@ -33,27 +33,30 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
 "](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and our ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission) guide before starting this tutorial.
 
 **Let’s get started!**
-
-<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
-
 - [Tutorial Setup](#tutorial-setup)
    * [Assumptions](#assumptions)
    * [Prerequisites](#prerequisites)
 - [Understanding the AlphaFold3 Workflow](#understanding-the-alphafold3-workflow)
    * [The CPU-Only Pipeline: Generating Alignments (Step 1)](#the-cpu-only-pipeline-generating-alignments-step-1)
+      + [What the Data Pipeline Does](#what-the-data-pipeline-does)
+      + [Why This Runs on CPU Machines at CHTC](#why-this-runs-on-cpu-machines-at-chtc)
 - [The GPU-Accelerated Pipeline: Structural Prediction (Step 2)](#the-gpu-accelerated-pipeline-structural-prediction-step-2)
-- [Recommended Directory Structure](#recommended-directory-structure)
-- [Basecalling Oxford Nanopore Long Reads Using Dorado](#basecalling-oxford-nanopore-long-reads-using-dorado)
+      + [What the Inference Pipeline Does](#what-the-inference-pipeline-does)
+      + [Why This Runs on GPU Machines at CHTC](#why-this-runs-on-gpu-machines-at-chtc)
+- [Running AlphaFold3 on CHTC](#running-alphafold3-on-chtc)
    * [Set Up Your Software Environment](#set-up-your-software-environment)
    * [Data Wrangling and Preparing AlphaFold3 Inputs](#data-wrangling-and-preparing-alphafold3-inputs)
       + [Setting Up AlphaFold3 Input JSONs and Job Directories](#setting-up-alphafold3-input-jsons-and-job-directories)
       + [Preparing Your _List of (AlphaFold) Jobs_](#preparing-your-list-of-alphafold-jobs)
    * [Submit Your AlphaFold3 Jobs - CPU-Intensive Alignment Generation (Step 1)](#submit-your-alphafold3-jobs---cpu-intensive-alignment-generation-step-1)
+      + [AlphaFold3 Databases Availability on CHTC](#alphafold3-databases-availability-on-chtc)
    * [Visualize Your AlphaFold3 Results](#visualize-your-alphafold3-results)
 - [Next Steps](#next-steps)
    * [Software](#software)
    * [Data](#data)
+      + [Key AF3 data components include:](#key-af3-data-components-include)
    * [GPUs](#gpus)
+      + [Key AF3 GPU considerations:](#key-af3-gpu-considerations)
 - [Getting Help](#getting-help)
 
 <!-- TOC end -->
@@ -194,40 +197,7 @@ The inference pipeline requires:
 
 * CHTC’s GPU Lab and GPU Open Capacity provide the necessary range of GPUs and allow users to scale inference jobs across many machines in parallel.
 
-## Recommended Directory Structure
-
-Use a layout like the one below (directories may already exist if you ran the setup script):
-
-```bash
-./tutorial-CHTC-AF3/
-├── scripts                            # scripts for preprocessing and running dorado jobs
-│   ├── preprocessing_pod5s.sh
-│   └── run_dorado.sh
-├── list_of_pod5_files.txt             # one POD5 path per line
-├── logs                               # condor .log files
-├── README.md                          # Tutorial step-by-step documentation and instructions
-├── data_pipeline.sub                  # HTCondor submit file (CPU-Intensive Alignment Generation)
-├── inference_pipeline.sub             # HTCondor submit file (GPU-Intensive Structure Prediction)
-├── software                           # containers recipes 
-│   └── alphafold3.def
-└── tutorial-setup.sh                  # optional helper to set up the tree
-```
-
-You also have a companion **OSDF** directory for storing large files, such as containers and Dorado models:
-
-```bash
-/staging/<netID>/tutorial-CHTC-AF3/
-├── data/
-│   ├── dna_r10.4.1_e8.2_400bps_fast@v4.2.0_5mCG_5hmCG@v2.tar.gz
-│   ├── dna_r10.4.1_e8.2_400bps_fast@v4.2.0.tar.gz
-│   ├── rna004_130bps_sup@v5.2.0.tar.gz
-├── software/
-│   └── dorado_build1.2.0_27OCT2025_v1.sif
-```
-
-Run the included `tutorial-setup.sh` script in the companion repository to create this structure.
-
-## Basecalling Oxford Nanopore Long Reads Using Dorado
+## Running AlphaFold3 on CHTC
 
 ### Set Up Your Software Environment
 CHTC maintains a shared Apptainer container for AlphaFold3, which we **highlyrecommend most researchers use on CHTC's systems**. However, if you wish to build your own AlphaFold3 container (for example, to include custom models or software versions), follow the steps below to create your own Apptainer container image.
@@ -270,11 +240,7 @@ CHTC maintains a shared Apptainer container for AlphaFold3, which we **highlyrec
 
 ### Data Wrangling and Preparing AlphaFold3 Inputs
 
-Oxford Nanopore sequencing runs generally yield POD5 files. Each POD5 file is generated about once an hour throughout the
-duration of the sequencing run. This output format does not scale very well, as data output usually plateaus after 24-48hrs.
-This would mean that POD5 files that are generated from earlier in the sequencing run, will be larger in file size compared to
-files later in the run. Additionally, this division of data does not allow for _Duplex_ read basecalling. As a result prior
-to running Dorado, we must first reorganize the data contained within all the POD5 files.
+In this section, we will prepare the input files and job directories needed to run AlphaFold3 on CHTC. This includes creating input JSON files for each protein sequence and organizing them into job-specific directories.
 
 #### Setting Up AlphaFold3 Input JSONs and Job Directories
 Alphafold3 requires input JSON files that contain the input query sequence(s) along with their corresponding metadata, such as chain IDs, sequence names, and molecule type. Additionally, if you are using precomputed MSAs and templates, these JSON files should also reference the paths to them. For this tutorial, we will create individual JSON files for each protein sequence. Each AlphaFold3 job will have its own directory containing the input JSON file and any associated supporting files, such as
@@ -362,29 +328,6 @@ There are many ways to create a "list of jobs" directly in your HTCondor submit 
 
 > [!NOTE]  
 > Each line in `list_of_af3_jobs.txt` corresponds to a single AlphaFold3 job that will be executed using HTCondor. You can modify this file to add or remove jobs as needed. This file, functionally, is a one-column comma-separated values (CSV) file where each line represents a job name. You could add additional columns to this file if you wanted to pass more variables to your HTCondor jobs.
-
-6. Create a list of POD5 files to iterate through during job submission:
-
-    ```bash
-    ls split_pod5_subsets > ~/tutorial-ONT-Basecalling/list_of_pod5_files.txt
-   ```
-   
-    If you `head` this new file you should see an output similar to this:
-
-    ```
-    [user.name@ap40 user.name]$ head ~/tutorial-ONT-Basecalling/list_of_pod5_files.txt
-    channel-100.pod5
-    channel-101.pod5
-    channel-102.pod5
-    channel-103.pod5
-    channel-104.pod5
-    channel-105.pod5
-    channel-106.pod5
-    channel-107.pod5
-    channel-108.pod5
-    channel-109.pod5
-    [user.name@ap40 user.name]$ 
-   ```
 
 ### Submit Your AlphaFold3 Jobs - CPU-Intensive Alignment Generation (Step 1)
 
@@ -833,56 +776,93 @@ AlphaFold3 generates a variety of output files, including predicted 3D structure
 
 ## Next Steps
 
-Now that you've completed this long-read genomics tutorial on the OSPool, you're ready to adapt these workflows for your own data and research questions. Here are some suggestions for what you can do next:
+Now that you've successfully run the full AlphaFold3 two-stage workflow on the CHTC GPU capacity, you’re ready to extend this workflow to your own research projects, larger datasets, and more complex biomolecular systems. Below are recommended next steps to build on this tutorial.
 
 🧬 Apply the Workflow to Your Own Data
-* Replace the tutorial datasets with your own POD5 files and reference genome.
-* Modify the basecalling, mapping, and variant calling submit files to fit your data size, read type (e.g., simplex vs. duplex), and resource needs.
-
-🧰 Customize or Extend the Workflow
-* Incorporate quality control steps (e.g., filtering or read statistics) using FastQC.
-* Use other mappers or variant callers, such as ngmlr, pbsv, or cuteSV.
-* Add downstream tools for annotation, comparison, or visualization (e.g., IGV, bedtools, SURVIVOR).
-
-📦 Create Your Own Containers
-* Extend the Apptainer containers used here with additional tools, reference data, or dependencies.
-* For help with this, see our [Containers Guide](https://portal.osg-htc.org/documentation/htc_workloads/using_software/containers/).
+* Replace the tutorial sequences with your own proteins, RNA molecules, complexes, or mixed multimers.
+* Use the provided CSV manifest system to generate hundreds or thousands of AF3 job directories automatically.
+* Experiment with:
+  * Multimeric protein assemblies 
+  * Protein–RNA or protein–DNA complexes 
+  * Ligands or modified residues (e.g., 2′-O-methyl RNA, PTMs)
+* Re-use the data pipeline outputs to run multiple inference configurations (different seeds, different AF3 options) without recomputing MSAs.
 
 🚀 Run Larger Analyses
-* Submit thousands of basecalling or alignment jobs across the OSPool.
-* Explore data staging best practices using the OSDF for large-scale genomics workflows.
-* Consider using workflow managers (e.g., [DAGman](https://portal.osg-htc.org/documentation/htc_workloads/automated_workflows/dagman-workflows/) or [Pegasus](https://portal.osg-htc.org/documentation/htc_workloads/automated_workflows/tutorial-pegasus/)) with HTCondor.
+* Once you’re comfortable with the basics, try:
+  * Large protein–RNA complexes (>10k tokens)
+  * Multi-seed inference strategies 
+  * Modeling structural evolution by comparing AF3 predictions across species 
+* Integrating AF3 predictions into:
+  * Molecular dynamics (MD) or Docking simulations 
+  * Variant impact analyses 
+  * Evolutionary analyses 
+* Using AF3 for structural annotation of genomes, e.g., predicting full gene families with DAGMan workflows.
 
 🧑‍💻 Get Help or Collaborate
-* Reach out to [support@osg-htc.org](mailto:support@osg-htc.org) for one-on-one help with scaling your research.
-* Attend office hours or training sessions—see the [OSPool Help Page](https://portal.osg-htc.org/documentation/support_and_training/support/getting-help-from-RCFs/) for details.
+* Reach out to [chtc@cs.wisc.edu](mailto:chtc@cs.wisc.edu) for one-on-one help with scaling your research.
+* Attend office hours or training sessions—see the [CHTC Help Page](https://chtc.cs.wisc.edu/uw-research-computing/get-help.html) for details.
 
 ### Software
 
 In this tutorial, we created several *starter* Apptainer containers, including tools like: Dorado, SAMtools, Minimap, and Sniffles2. These containers can serve as a *jumping-off* for you if you need to install additional software for your workflows. 
 
 Our recommendation for most users is to use "Apptainer" containers for deploying their software.
-For instructions on how to build an Apptainer container, see our guide [Using Apptainer/Singularity Containers](https://portal.osg-htc.org/documentation/htc_workloads/using_software/containers-singularity/).
-If you are familiar with Docker, or want to learn how to use Docker, see our guide [Using Docker Containers](https://portal.osg-htc.org/documentation/htc_workloads/using_software/containers-docker/).
+For instructions on how to build an Apptainer container, see our guide [Using Apptainer/Singularity Containers](https://chtc.cs.wisc.edu/uw-research-computing/apptainer-htc#main).
+If you are familiar with Docker, or want to learn how to use Docker, see our guide [Using Docker Containers](https://chtc.cs.wisc.edu/uw-research-computing/docker-jobs#main).
 
-This information can also be found in our guide [Using Software on the Open Science Pool](https://portal.osg-htc.org/documentation/htc_workloads/using_software/software-overview/).
+This information can also be found in our guide [Using Software on CHTC](https://chtc.cs.wisc.edu/uw-research-computing/software-overview-htc#main).
 
 ### Data
 
-The ecosystem for moving data to, from, and within the HTC system can be complex, especially if trying to work with large data (> gigabytes).
-For guides on how data movement works on the HTC system, see our [Data Staging and Transfer to Jobs](https://portal.osg-htc.org/documentation/htc_workloads/managing_data/overview/) guides.
+AlphaFold3 jobs involve large and complex datasets, especially during the data pipeline stage. Understanding how data moves through the HTC system—and how to store it efficiently—is essential for scaling AF3 workloads.
+
+#### Key AF3 data components include:
+* AF3 reference databases (~750 GB unpacked in total)
+  * Stored on selected CHTC nodes and accessed via `(TARGET.HasAlphafold3 == true)` requirements
+  * Avoids expensive per-job transfers of MGnify, UniRef, UniProt, PDB mmCIF, Rfam, RNAcentral, etc.
+* Model weights (user-supplied)
+  * Typically ~2–4 GB depending on compression
+  * Stored in your `/staging` directory for fast transfer to GPU execute nodes
+* Data pipeline outputs
+  * `.data_pipeline.tar.gz` for each job
+  * Typically 100–300 MB depending on alignment depth
+* Inference outputs
+  * `.inference_pipeline.tar.gz` per job
+  * Includes ranked PDBs, metrics, seeds, confidence scores
+
+For guides on how data movement works on the HTC system, see our [Data Staging and Transfer to Jobs](https://chtc.cs.wisc.edu/uw-research-computing/htc-job-file-transfer) guides.
 
 ### GPUs
 
-The OSPool has GPU nodes available for common use, like the ones used in this tutorial. If you would like to learn more about our GPU capacity, please visit our [GPU Guide on the OSPool Documentation Portal](https://portal.osg-htc.org/documentation/htc_workloads/specific_resource/gpu-jobs/).
+AlphaFold3 inference is GPU-intensive, and selecting the right GPU resources is crucial for reliability and efficiency. CHTC provides a broad range of available GPUs, from smaller RTX-series cards (8–16 GB) to large-memory accelerators such as A100s (40–80 GB).
+
+#### Key AF3 GPU considerations:
+
+Token count drives GPU memory needs
+  * Tokens ≈ ~1.2 × total sequence length across all chains
+  * RNA/DNA bases count as tokens
+  * Larger complexes → more GPU memory
+Typical GPU memory guidelines:
+  * | Tokens     | Estimated GPU Memory Requirement |
+    |------------|----------------------------------|
+    | Up to 1200 | 8-10 GB                          |
+    | 1200-1850  | 15-20 GB                         |
+    | 2000-3000  | 35-40 GB                         |
+    | Over 3000  | 70+ GB                           |
+* Unified memory support
+  * Can rescue very large complexes (>10k tokens)
+  * Significantly slower
+  * Increase `request_memory` if enabling `--enable_unified_memory` in your executable arguments
+
+If you would like to learn more about our GPU capacity, please visit our [GPU Guide on CHTC Documentation Portal](https://chtc.cs.wisc.edu/uw-research-computing/gpu-jobs).
 
 ## Getting Help
 
-The OSPool Research Computing Facilitators are here to help researchers using the OSPool for their research. We provide a broad swath of research facilitation services, including:
+The CHTC Research Computing Facilitators are here to help researchers using the CHTC resources for their research. We provide a broad swath of research facilitation services, including:
 
-* **Web guides**: [OSPool Guides](https://portal.osg-htc.org/documentation/) - instructions and how-tos for using the OSPool and OSDF.
-* **Email support**: get help within 1-2 business days by emailing [support@osg-htc.org](mailto:support@osg-htc.org).
-* **Virtual office hours**: live discussions with facilitators - see the [Email, Office Hours, and 1-1 Meetings](https://portal.osg-htc.org/documentation/support_and_training/support/getting-help-from-RCFs/) page for current schedule.
-* **One-on-one meetings**: dedicated meetings to help new users, groups get started on the system; email [support@osg-htc.org](mailto:support@osg-htc.org) to request a meeting.
+* **Web guides**: [CHTC Guides](https://chtc.cs.wisc.edu/uw-research-computing/htc/guides.html) - instructions and how-tos for using the CHTC cluster.
+* **Email support**: get help within 1-2 business days by emailing [chtc@cs.wisc.edu](mailto:chtc@cs.wisc.edu).
+* **Virtual office hours**: live discussions with facilitators - see the [Email, Office Hours, and 1-1 Meetings](https://chtc.cs.wisc.edu/uw-research-computing/get-help.html) page for current schedule.
+* **One-on-one meetings**: dedicated meetings to help new users, groups get started on the system; email [chtc@cs.wisc.edu](mailto:chtc@cs.wisc.edu) to request a meeting.
 
-This information, and more, is provided in our [Get Help](https://portal.osg-htc.org/documentation/support_and_training/support/getting-help-from-RCFs/) page.
+This information, and more, is provided in our [Get Help](https://chtc.cs.wisc.edu/uw-research-computing/get-help.html) page.
