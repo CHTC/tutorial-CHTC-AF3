@@ -69,7 +69,7 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
 This tutorial assumes that you:
 
 * Have basic command-line experience (e.g., navigating directories, using bash, editing text files)
-* Have a working CHTC account and can log into an Access Point (e.g., ap2001/2002.uw.osg-htc.org)
+* Have a working CHTC account and can log into an Access Point (e.g., ap2001/2002.chtc.wisc.edu)
 * Are familiar with HTCondor job submission, including writing simple `.sub` files and tracking job status with `condor_q`
 * Have access to a machine with a GPU-enabled execution environment (provided automatically via CHTC's GPU Open Capacity)
 * Have sufficient disk quota and file permissions in your CHTC `/home` and `/staging` directories
@@ -87,7 +87,7 @@ This tutorial assumes that you:
 1. Log into your CHTC account:
     
     ```bash
-    ssh user.name@ap##.uw.osg-htc.org
+    ssh user.name@ap####.chtc.wisc.edu
     ```
 
 To obtain a copy of the tutorial files, you can:
