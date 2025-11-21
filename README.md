@@ -158,7 +158,7 @@ CHTC’s GPU Lab and GPU Open Capacity provide the necessary range of GPUs and a
 ## Running AlphaFold3 on CHTC
 
 ### Set Up Your Software Environment
-CHTC maintains a shared Apptainer container for AlphaFold3, which we **highlyrecommend most researchers use on CHTC's systems**. However, if you wish to build your own AlphaFold3 container (for example, to include custom models or software versions), follow the steps below to create your own Apptainer container image.
+CHTC maintains a shared Apptainer container for AlphaFold3, which we **highly recommend most researchers use on CHTC's systems**. However, if you wish to build your own AlphaFold3 container (for example, to include custom models or software versions), follow the steps below to create your own Apptainer container image.
 
 <details>
 <summary>Click to expand: Building Your Own AlphaFold3 Apptainer Container (Advanced)</summary>
@@ -459,9 +459,9 @@ The script will also check the matched machine's MachineAd, after the job has ma
 
     > [!TIP]  
     > You can test the data pipeline using reduced-size databases by defining the `USE_SMALL_DB=1` variable when submitting your jobs. This is useful for debugging and testing purposes, as it reduces resource requirements and speeds up job execution. To use the small database set, submit your jobs with the following command: 
-       > ```
-       > condor_submit USE_SMALL_DB=1 data_pipeline.sub
-       > ```
+   > ```
+   > condor_submit USE_SMALL_DB=1 data_pipeline.sub
+   > ```
 
 5. Track your job progress:
 
