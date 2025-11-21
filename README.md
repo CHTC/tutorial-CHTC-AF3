@@ -2,7 +2,7 @@
 
 A two-phase workflow: alignment generation → structure prediction
 
-AlphaFold3 (AF3) is a next-generation biomolecular structure prediction system capable of modeling multichain protein complexes, DNA/RNA interactions, ligands, and modified residues (e.g., 2′-O-methylated piRNAs). This guide provides a step-by-step workflow for running AF3 on the CHTC HTC ecosystem, including how to structure your project, prepare input JSON files, run many inference jobs with HTCondor, and store your results using OSDF.
+AlphaFold3 (AF3) is a next-generation biomolecular structure prediction system capable of modeling multichain protein complexes, DNA/RNA interactions, ligands, and modified residues (e.g., 2′-O-methylated RNAs or glycosylated amino acids). This guide provides a step-by-step workflow for running AF3 on the CHTC HTC ecosystem, including how to structure your project, prepare input JSON files, run many inference jobs with HTCondor, and store your results using OSDF.
 
 AlphaFold3 workloads in high-throughput environments are best organized into two separate job types:
 * **Step 1: Generating the Alignments (Data-Only Pipeline)**
@@ -18,44 +18,43 @@ AlphaFold3 workloads in high-throughput environments are best organized into two
 
 You will learn how to:
 
-* Basecall raw Nanopore reads using the latest GPU-accelerated Dorado basecaller  
-* Use the OSPool's GPU capacity to accelerate basecalling with Dorado  
-* Break down massive bioinformatics workflows into many independent smaller tasks  
-* Submit hundreds to thousands of jobs with a few simple commands  
-* Use the Open Science Data Federation (OSDF) to manage file transfers during job submission  
+* **Understand the overall computational architecture of AlphaFold3 on CHTC**, including how the data-generation and inference stages map to CPU and GPU resources. 
+* **Design, organize, and manage large-scale AF3 workloads**, including preparing inputs, structuring job directories, and generating automated job manifests. 
+* **Leverage CHTC’s GPU capacity for high-throughput structure prediction**, including selecting appropriate resources based on input complexity. 
+* **Use containers, staged databases, and HTCondor data-transfer** mechanisms to build reproducible, portable, and scalable AF3 workflows. 
+* **Submit and monitor hundreds to thousands of AF3 jobs**, using standard HTCondor patterns and best practices for reliable execution on distributed compute sites.
 
 All of these steps run across hundreds (or thousands) of jobs using the HTCondor workload manager and Apptainer containers to execute your software reliably and reproducibly at scale. The tutorial uses realistic genomics data and emphasizes performance, reproducibility, and portability. You will work with real data and see how high-throughput computing (HTC) can accelerate your workflows.
 
 ![Workflow_Diagram.png](.images/Workflow_Diagram.png)
 
 > [!NOTE]
-> If you are new to running jobs on the OSPool, complete the HTCondor ["Hello World"](https://portal.osg-htc.org/documentation/htc_workloads/submitting_workloads/tutorial-quickstart/) tutorial and our ["Submit Jobs to the OSPool"](https://portal.osg-htc.org/documentation/htc_workloads/workload_planning/htcondor_job_submission/) guide before starting this tutorial.
+> If you are new to running jobs on CHTC, complete the CHTC ["Roadmap to getting started
+"](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and our ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission) guide before starting this tutorial.
 
 **Let’s get started!**
 
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
-- [tutorial-ONT-Basecalling](#tutorial-ont-basecalling)
-- [Long-Read Genomics on the OSPool](#long-read-genomics-on-the-ospool)
-   * [Tutorial Setup](#tutorial-setup)
-      + [Assumptions](#assumptions)
-      + [Materials](#materials)
-   * [Understanding Basecalling in Oxford Nanopore Sequencing](#understanding-basecalling-in-oxford-nanopore-sequencing)
-      + [From Signal to Sequence: The Role of Basecalling](#from-signal-to-sequence-the-role-of-basecalling)
-   * [Basecalling on the OSPool by Sequencing Channel](#basecalling-on-the-ospool-by-sequencing-channel)
-   * [Recommended Directory Structure](#recommended-directory-structure)
-   * [Basecalling Oxford Nanopore Long Reads Using Dorado](#basecalling-oxford-nanopore-long-reads-using-dorado)
-      + [Set Up Your Software Environment](#set-up-your-software-environment)
-      + [Data Wrangling and Splitting Reads](#data-wrangling-and-splitting-reads)
-         - [Downloading the Dorado Basecalling Models](#downloading-the-dorado-basecalling-models)
-         - [Split Your Reads for Basecalling](#split-your-reads-for-basecalling)
-      + [Submit Your Basecalling Jobs](#submit-your-basecalling-jobs)
-      + [Post-Basecalling Steps](#post-basecalling-steps)
-   * [Next Steps](#next-steps)
-      + [Software](#software)
-      + [Data](#data)
-      + [GPUs](#gpus)
-   * [Getting Help](#getting-help)
+- [Tutorial Setup](#tutorial-setup)
+   * [Assumptions](#assumptions)
+   * [Prerequisites](#prerequisites)
+- [Understanding the AlphaFold3 Workflow](#understanding-the-alphafold3-workflow)
+   * [The CPU-Only Pipeline: Generating Alignments (Step 1)](#the-cpu-only-pipeline-generating-alignments-step-1)
+- [The GPU-Accelerated Pipeline: Structural Prediction (Step 2)](#the-gpu-accelerated-pipeline-structural-prediction-step-2)
+- [Recommended Directory Structure](#recommended-directory-structure)
+- [Basecalling Oxford Nanopore Long Reads Using Dorado](#basecalling-oxford-nanopore-long-reads-using-dorado)
+   * [Set Up Your Software Environment](#set-up-your-software-environment)
+   * [Data Wrangling and Preparing AlphaFold3 Inputs](#data-wrangling-and-preparing-alphafold3-inputs)
+      + [Setting Up AlphaFold3 Input JSONs and Job Directories](#setting-up-alphafold3-input-jsons-and-job-directories)
+      + [Preparing Your _List of (AlphaFold) Jobs_](#preparing-your-list-of-alphafold-jobs)
+   * [Submit Your AlphaFold3 Jobs - CPU-Intensive Alignment Generation (Step 1)](#submit-your-alphafold3-jobs---cpu-intensive-alignment-generation-step-1)
+   * [Visualize Your AlphaFold3 Results](#visualize-your-alphafold3-results)
+- [Next Steps](#next-steps)
+   * [Software](#software)
+   * [Data](#data)
+   * [GPUs](#gpus)
+- [Getting Help](#getting-help)
 
 <!-- TOC end -->
 
@@ -67,25 +66,22 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
 This tutorial assumes that you:
 
 * Have basic command-line experience (e.g., navigating directories, using bash, editing text files)
-* Have a working OSPool account and can log into an Access Point (e.g., ap40.uw.osg-htc.org)
+* Have a working CHTC account and can log into an Access Point (e.g., ap2001/2002.uw.osg-htc.org)
 * Are familiar with HTCondor job submission, including writing simple `.sub` files and tracking job status with `condor_q`
-* Understand the general workflow of long-read sequencing analysis: basecalling → mapping → variant calling
-* Have access to a machine with a GPU-enabled execution environment (provided automatically via the OSPool)
-* Have sufficient disk quota and file permissions in your OSPool home and OSDF directories
-
-> [!TIP]
-> You do not need to be a genomics expert to follow this tutorial. The commands and scripts are beginner-friendly and self-contained while reflecting real-world research workflows.
+* Have access to a machine with a GPU-enabled execution environment (provided automatically via CHTC's GPU Open Capacity)
+* Have sufficient disk quota and file permissions in your CHTC `/home` and `/staging` directories
 
 ### Prerequisites
 
 1. [ ] A CHTC HTC account. If you do not have one, request access at the [CHTC Account Request Page](https://chtc.cs.wisc.edu/uw-research-computing/form.html).
-2. [ ] Basic familiarity with HTCondor job submission. If you are new to HTCondor, complete the [HTCondor "Hello World" Tutorial](https://portal.osg-htc.org/documentation/htc_workloads/submitting_workloads/tutorial-quickstart/) and read the [Submit Jobs to the OSPool Guide](https://portal.osg-htc.org/documentation/htc_workloads/workload_planning/htcondor_job_submission/).
+2. [ ] Basic familiarity with HTCondor job submission. If you are new to HTCondor, complete the CHTC ["Roadmap to getting started
+"](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and read the ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission).
 3. [ ] AlphaFold3 Model Weights. Request the AF3 model weights from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters).
 
 > [!WARNING]
 > Requesting AlphaFold3 model weights requires agreeing to DeepMind's terms of service. Ensure you comply with all licensing and usage restrictions when using AF3 for research. This tutorial does not distribute AF3 model weights. Requesting the weights can take up to several weeks. Ensure you have them before starting the tutorial.
 
-Log into your OSPool account:
+Log into your CHTC account:
 
     ```bash
     ssh user.name@ap##.uw.osg-htc.org
@@ -100,26 +96,103 @@ To obtain a copy of the tutorial files, you can:
   cd tutorial-CHTC-AF3/
   bash tutorial-setup.sh <username>
   ```
-  _This script creates the directory structure in your home directory `/home/<user.name>/tutorial-ONT-Basecalling/` and OSPool directory `/ospool/ap40/<user.name>/tutorial-ONT-Basecalling/`, along with several subdirectories used in this tutorial._
+  _This script creates the directory structure in your home directory `/home/<user.name>/tutorial-CHTC-AF3/` and CHTC directory `/staging/<netID>/tutorial-CHTC-AF3/`, along with several subdirectories used in this tutorial._
 
 * Or download the toy dataset using Pelican **CURRENT UNAVAILBLE - WORK IN PROGRESS**:
 
   ```bash
-  pelican object get pelican://osg-htc.org/ospool/uw-shared/OSG-Staff/osg-training/tutorial-ospool-genomics/data/path/to/pod5/files ./
+  pelican object get [PENDING PELICAN LINK] ./
   ```
-
 
 ## Understanding the AlphaFold3 Workflow
 
-[INSERT NARRATIVE ON ALPHAFOLD3 WORKFLOW HERE]
+AlphaFold3 (AF3) uses a two-stage workflow that separates alignment generation from structure prediction. This separation allows AF3 to run efficiently in high-throughput environments like CHTC, where jobs may need to scale across hundreds or thousands of independent sequences.
+
+At a high level, AF3 works by transforming biological sequences into a structured representation (MSAs, templates, and features) and then using a diffusion-based deep learning model to iteratively refine the predicted 3D structure. The data pipeline produces all the information AF3 needs to understand evolutionary context, residue co-variation, structural homology, and template similarity. The inference pipeline uses that information, together with model weights, to construct atomic-level predictions and associated confidence metrics.
+
+On CHTC, these two stages map naturally to the heterogeneous compute environment:
+
+ - **Stage 1 (Data Pipeline)** runs on CPU-only execution points and is typically the bottleneck for large batches of sequences.
+
+ - **Stage 2 (Inference Pipeline)** runs on GPU-enabled execution points in the GPU Lab and GPU Open Capacity.
+
+Separating these steps allows researchers to mix-and-match resource allocation strategies, reuse MSA/template features for multiple inference runs, and test alternative model parameters without re-running alignment-heavy jobs.
 
 ### The CPU-Only Pipeline: Generating Alignments (Step 1)
 
-[EXPLAIN THE ALIGNMENT GENERATION STEP HERE]
+The first stage of AlphaFold3 prepares all input features needed for structure prediction. This step is entirely CPU-driven and dominated by database searches and feature construction.
+
+#### What the Data Pipeline Does
+
+AF3’s data pipeline performs the following major tasks:
+
+   1. MMseqs2 Search<br>
+   Uses MMseqs2 to search large protein sequence databases (e.g., UniRef, MGnify) to build MSAs.<br>
+   _This provides evolutionary depth and signals conserved interactions._
+
+   2. HMMER Search<br>
+   Runs profile HMM searches to detect more remote homology and increase sensitivity for sequences with few known relatives.
+
+   3. Template Retrieval (Optional)<br>
+   Searches structural databases (e.g., PDB mmCIF) for homologous structures.<br>
+   Templates provide complementary spatial constraints and can dramatically improve prediction accuracy when good matches exist.
+
+   4. Feature Construction and Packaging <br>
+   AF3 organizes MSAs, templates, and metadata into a standardized directory and packages them into:
+       ```bash
+       <job>.data_pipeline.tar.gz
+       ```
+
+#### Why This Runs on CPU Machines at CHTC
+
+* Database searches are CPU-intensive and parallelize extremely well.
+* Storage needs are substantial (~750 GB of AF3 databases), so CHTC provides pre-staged databases on select nodes.
+* Running these jobs on GPU nodes would unnecessarily waste GPU time, increase GPU queue pressure, and reduce throughput.
+
+This stage can be run for dozens, hundreds, or thousands of sequences simultaneously, making it ideal for HTC workloads.
 
 ## The GPU-Accelerated Pipeline: Structural Prediction (Step 2)
 
-[EXPLAIN THE STRUCTURE PREDICTION STEP HERE]
+Once the data pipeline has produced MSAs and templates, AF3’s second stage uses this information to generate atomic-resolution structural models.
+
+#### What the Inference Pipeline Does
+
+The inference stage loads:
+
+* precomputed MSAs and template features (from Step 1)
+* model weights (user-supplied)
+* AF3 container environment
+
+It then performs:
+
+1. Model Initialization & Tokenization <br>
+The system converts all inputs into internal tokens for attention-based processing.<br>
+Token counts relate directly to GPU memory demands.
+
+2. Diffusion-Based Structure Prediction<br>
+AF3 iteratively denoises and refines a 3D structure using diffusion and attention mechanisms.<br>
+This is the most GPU-intensive part of the workflow.
+
+3. Per-Seed Sampling & Ranking<br>
+AF3 generates multiple predictions per job (depending on settings) and outputs:
+   * ranked structures
+   * confidence scores (e.g., pLDDT, PAE-like metrics)
+   * intermediate trajectory snapshots (optional)
+
+4. Output Packaging<br>
+Results are tarballed as:
+    ```bash
+    <job>.inference_pipeline.tar.gz
+    ```
+#### Why This Runs on GPU Machines at CHTC
+
+The inference pipeline requires:
+
+* large matrix multiplications on GPUs
+* high GPU memory capacity for complexes and nucleic acid assemblies
+* JAX/XLA runtime optimizations available only on GPU-enabled nodes
+
+* CHTC’s GPU Lab and GPU Open Capacity provide the necessary range of GPUs and allow users to scale inference jobs across many machines in parallel.
 
 ## Recommended Directory Structure
 
@@ -157,73 +230,44 @@ Run the included `tutorial-setup.sh` script in the companion repository to creat
 ## Basecalling Oxford Nanopore Long Reads Using Dorado
 
 ### Set Up Your Software Environment
-Before basecalling, set up your software environment to run Dorado inside an Apptainer container.
+CHTC maintains a shared Apptainer container for AlphaFold3, which we **highlyrecommend most researchers use on CHTC's systems**. However, if you wish to build your own AlphaFold3 container (for example, to include custom models or software versions), follow the steps below to create your own Apptainer container image.
 
-1. Set your temporary Apptainer build directory to `/home/tmp/`. Once you've built your container, you can delete the contents of this directory to reduce quota usage on `/home`. 
+1. On your local machine, clone the AlphaFold3 repository:
 
-   On the Access Point (AP), run:
     ```bash
-    mkdir -p $HOME/tmp
-    export TMPDIR=$HOME/tmp
-    export APPTAINER_TMPDIR=$HOME/tmp
-    export APPTAINER_CACHEDIR=$HOME/tmp
+    git clone https://github.com/google-deepmind/alphafold3.git
     ```
-> [!CAUTION]
-> Run these commands **every time you log in or build a new container**. Building Apptainer containers without setting these variables places excessive strain on shared storage resources and **violates OSPool usage policies**. Failure to follow these steps may result in restricted access.
+2. Navigate to the `alphafold3/` directory:
 
-2. Change to your `software/` directory in your tutorial folder:
     ```bash
-    cd ~/tutorial-ONT-Basecalling/software/
+    cd alphafold3/
     ```
-
-3. Create a definition file for Apptainer to build your Dorado container. Open a text editor, such as `vim` or `nano`, and save the following as `software/dorado.def`:
+   
+3. Build a docker image using the provided `Dockerfile`:
 
     ```bash
-    Bootstrap: docker
-    From: nvidia/cuda:13.0.1-cudnn-runtime-ubuntu22.04
-    
-    %post
-        DEBIAN_FRONTEND=noninteractive
-    
-        # system packages
-        apt-get update -y
-        apt-get install -y python3-minimal curl
-        curl -sS https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-        python3 get-pip.py --break-system-packages
-        rm get-pip.py 
-        apt-get install -y bedtools
-    
-        # install Dorado and POD5
-        cd /opt/
-        curl -L https://cdn.oxfordnanoportal.com/software/analysis/dorado-1.2.0-linux-x64.tar.gz -o ./dorado-1.2.0-linux-x64.tar.gz
-        tar -zxvf dorado-1.2.0-linux-x64.tar.gz
-        rm dorado-1.2.0-linux-x64.tar.gz
-    
-        # install POD5 using pip
-        pip install pod5 --break-system-packages
-    
-    %environment
-        # set up environment for when using the container
-        # add Dorado to $PATH variable for ease of use
-        export PATH="/opt/dorado-1.2.0-linux-x64/bin/:$PATH"
+    docker build -t alphafold3:latest ./docker/
     ```
+   
+4. Push the docker image to a container registry (e.g., Docker Hub, Google Container Registry):
 
-    This definition file uses the Nvidia CUDA 13.0.1 libraries on an Ubuntu 22.04 base image and installs necessary packages to run Dorado and POD5 in an Apptainer container.
-
-
-4. Build your Apptainer container on the Access Point (AP):
     ```bash
-    apptainer build dorado_build1.2.0_27OCT2025_v1.sif dorado.def
-   ```
-   > [!WARNING]
-   > This will take a few minutes depending on system usage. If you encounter any errors during the build process, double-check that you have set your temporary directories correctly (see step 1). Contact your RCF team if issues persist.
+    docker tag alphafold3:latest <your-dockerhub-username>/alphafold3:latest
+    docker push <your-dockerhub-username>/alphafold3:latest
+    ```
+   
+5. On your CHTC Access Point, pull the docker image and convert it to an Apptainer image:
 
-5. Move your finalized container image, `dorado_build1.2.0_27OCT2025_v1.sif`, to your `OSDF` directory
-    
     ```bash
-   mv dorado_build1.2.0_27OCT2025_v1.sif /ospool/ap40/data/<user.name>/tutorial-ONT-Basecalling/software/
+    apptainer build alphafold3.sif docker://<your-dockerhub-username>/alphafold3:latest
    ```
    
+6. Verify that the Apptainer image was created successfully:
+
+    ```bash
+    apptainer exec alphafold3.sif python3 -c "import alphafold3; print(alphafold3.__version__)"
+   ```
+
 ### Data Wrangling and Preparing AlphaFold3 Inputs
 
 Oxford Nanopore sequencing runs generally yield POD5 files. Each POD5 file is generated about once an hour throughout the
@@ -344,9 +388,19 @@ There are many ways to create a "list of jobs" directly in your HTCondor submit 
 
 ### Submit Your AlphaFold3 Jobs - CPU-Intensive Alignment Generation (Step 1)
 
-[INSERT INSTRUCTIONS FOR SUBMITTING THE DATA PIPELINE JOBS HERE]
+The data-pipeline stage prepares all alignments, templates, and features needed for AF3 prediction. These CPU-only jobs run on CHTC’s standard compute nodes and can be scaled to many sequences at once. In the steps below, you’ll submit one data-pipeline job per sequence, producing the feature tarballs required for the GPU inference stage.
 
 [INSERT GRAPHIC OF ALPHAFOLD3 WORKFLOW WITH DATA PIPELINE HIGHLIGHTED]
+
+#### AlphaFold3 Databases Availability on CHTC
+
+CHTC maintains a full, pre-extracted copy of the AlphaFold3 reference databases on a subset of CPU execute points. When your data-pipeline jobs match to one of these machines, they can use the local /alphafold3 directory directly, avoiding the costly transfer and extraction of several hundred gigabytes of database files. This dramatically reduces startup time, disk requirements, and overall job runtime. If a job lands on a machine without pre-staged databases, the script automatically falls back to unpacking the databases in the job’s scratch space, ensuring that every job can run regardless of where it matches.
+
+You can target these pre-staged database nodes specifically by adding the following requirement to your submit file:
+
+```bash
+requirements = (HasAlphafold3 == true)
+```
 
 1. Change to your `tutorial-CHTC-AF3/` directory:
     ```bash
@@ -519,7 +573,9 @@ The script will also check the matched machine's MachineAd, after the job has ma
 
 ### Submit Your AlphaFold3 Jobs - GPU-Accelerated Structural Prediction (Step 2)
 
-[INSERT INSTRUCTIONS FOR SUBMITTING THE INFERENCE PIPELINE JOBS HERE]
+Once the data-pipeline jobs have finished generating alignments and features, the next stage is to run the AlphaFold3 inference pipeline on GPU-enabled execute points. This stage loads the model weights, expands the feature tarball from Step 1, and performs the diffusion-based structure prediction. Because inference is GPU-intensive, these jobs run on CHTC’s GPU Lab and GPU Open Capacity, and can be scaled across many GPUs in parallel. In the steps below, you will set up a submit file that launches one inference job per sequence, each producing a final structure tarball ready for download and visualization.
+
+This stage **does not** require the full AlphaFold3 databases, only the model weights and the feature tarballs produced in Step 1. As a result, you can run these jobs on a wider range of GPU Execute Points without worrying about database availability, including GPU EPs outside of CHTC on the OSPool. To learn more about using additional capacity beyond CHTC, visit our guide on [Scale Beyond Local HTC Capacity](https://chtc.cs.wisc.edu/uw-research-computing/scaling-htc). 
 
 [INSERT GRAPHIC OF ALPHAFOLD3 WORKFLOW WITH INFERENCE PIPELINE HIGHLIGHTED]
 
@@ -745,19 +801,35 @@ For very large complexes exceeding 10k tokens, you may need to enable unified me
    ```
 
 
-### Post-Data Pipeline Data Wrangling
+### Visualize Your AlphaFold3 Results
 
-Running the data pipeline will generate a tarball for each job containing the necessary input files for the inference pipeline. These tarballs will be named `<job_name>.data_pipeline.tar.gz` and will be located in the respective job directories.
+AlphaFold3 generates a variety of output files, including predicted 3D structures in PDB format, ranking scores, and seed/sample-level predictions. These files are packaged into tarballs named `<job_name>.inference_pipeline.tar.gz` and are returned to the submit host for downstream analysis. You will need to download these results from the Access Point to your local machine for visualization and further analysis.
 
-You should now have a directory of basecalled FASTQ and BAM files in your outputs folder. You'll likely want to perform additional steps after basecalling, such as checking read quality, mapping to a reference genome, or calling variants. We recommend merging your basecalled FASTQ files into a single file for downstream analysis. You can do this using the `cat` command:
+1. Once your inference pipeline jobs have completed successfully, `exit` the Access Point SSH session and return to your local machine.:
 
-```
-for f in outputs/basecalledFASTQs/*.fastq; do
-    cat "$f" >> outputs/merged_basecalled_reads.fastq
-done
-```
+    ```bash
+    [bbdager@ap2002 tutorial-CHTC-AF3]$ exit
+    logout
+    Shared connection to ap2002.chtc.wisc.edu closed.
+    Bucky@MyLaptop ~ % 
+   ```
 
-You can use this merged FASTQ file for running FastQC, mapping, or variant calling in the next sections. The recommended next step is to run FastQC to assess the quality of your basecalled reads. You can find a step-by-step tutorial on running [FastQC on the OSPool](https://portal.osg-htc.org/documentation/software_examples/bioinformatics/tutorial-fastqc/) on our documentation portal.
+    **_Note:_** Notice the chance in the prompt, indicating you are back on your local laptop. 
+
+2. For each job directory, download and extract the `<job_name>.inference_pipeline.tar.gz` file to your local machine:
+
+    ```bash
+    scp <netID>@ap2002.chtc.wisc.edu:~/tutorial-CHTC-AF3/AF3_Jobs/Job1_ProteinA/Job1_ProteinA.inference_pipeline.tar.gz ./
+    tar -xzvf Job1_ProteinA.inference_pipeline.tar.gz
+    ```
+   
+3. After extracting the tarballs, you will find the predicted structures and associated metadata in each job directory under `af_output/<job_name>/`. You can visualize the predicted 3D structures using molecular visualization software such as PyMOL, Chimera, or VMD. To visualize a predicted structure using PyMOL, you can use the following command:
+
+    ```bash
+    pymol AF3_Jobs/Job1_ProteinA/af_output/Job1_ProteinA/predicted_structure.pdb
+    ```
+
+![pymol.png](.images/pymol.png)
 
 ## Next Steps
 
