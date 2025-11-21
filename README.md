@@ -457,11 +457,11 @@ The script will also check the matched machine's MachineAd, after the job has ma
    condor_submit scripts/data_pipeline.sub
    ```
 
-    > [!TIP]  
-    > You can test the data pipeline using reduced-size databases by defining the `USE_SMALL_DB=1` variable when submitting your jobs. This is useful for debugging and testing purposes, as it reduces resource requirements and speeds up job execution. To use the small database set, submit your jobs with the following command: 
-   > ```
-   > condor_submit USE_SMALL_DB=1 data_pipeline.sub
-   > ```
+> [!TIP]  
+> You can test the data pipeline using reduced-size databases by defining the `USE_SMALL_DB=1` variable when submitting your jobs. This is useful for debugging and testing purposes, as it reduces resource requirements and speeds up job execution. To use the small database set, submit your jobs with the following command: 
+> ```
+> condor_submit USE_SMALL_DB=1 data_pipeline.sub
+> ```
 
 5. Track your job progress:
 
