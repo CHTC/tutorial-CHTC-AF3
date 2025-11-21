@@ -741,10 +741,10 @@ Now that you've successfully run the full AlphaFold3 two-stage workflow on the C
 * Re-use the data pipeline outputs to run multiple inference configurations (different seeds, different AF3 options) without recomputing MSAs.
 
 🚀 Run Larger Analyses
-* Once you’re comfortable with the basics, try:
-  * Large protein–RNA complexes (>10k tokens)
-  * Multi-seed inference strategies 
-  * Modeling structural evolution by comparing AF3 predictions across species 
+Once you’re comfortable with the basics, try:
+* Large protein–RNA complexes (>10k tokens)
+* Multi-seed inference strategies 
+* Modeling structural evolution by comparing AF3 predictions across species 
 * Integrating AF3 predictions into:
   * Molecular dynamics (MD) or Docking simulations 
   * Variant impact analyses 
