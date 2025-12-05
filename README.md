@@ -112,11 +112,11 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
     mkdir /staging/<netid>/tutorial-CHTC-AF3/
     ```
   
-  You should upload your AlphaFold3 model weights (`af3.bin.zst`) to this path. If you do not already have them, you will need to obtain them from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters). **You MUST have these weights before proceeding as they are required to run the inference pipeline of AlphaFold3.** Model weights can take several days to weeks to be approved. 
-  
-  You can upload your `af3.bin.zst` using `scp`, `sftp`, `rsync` or another file transfer client, such as Cyberduck or WinSCP. For more information about uploading files to CHTC, visit our [Transfer Files between CHTC and your Computer](https://chtc.cs.wisc.edu/uw-research-computing/transfer-files-computer) guide. 
+    You should upload your AlphaFold3 model weights (`af3.bin.zst`) to this path. If you do not already have them, you will need to obtain them from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters). **You MUST have these weights before proceeding as they are required to run the inference pipeline of AlphaFold3.** Model weights can take several days to weeks to be approved. 
 
-#### Toy Dataset
+    You can upload your `af3.bin.zst` using `scp`, `sftp`, `rsync` or another file transfer client, such as Cyberduck or WinSCP. For more information about uploading files to CHTC, visit our [Transfer Files between CHTC and your Computer](https://chtc.cs.wisc.edu/uw-research-computing/transfer-files-computer) guide. 
+
+#### About the Toy Dataset
 A sample toy dataset has been included with this repository under `Toy_Dataset/input.csv`. You can use this CSV with the `scripts/generate_job_directories.py` helper script, as described in [Setting Up AlphaFold3 Input JSONs and Job Directories](#setting-up-alphafold3-input-jsons-and-job-directories). The toy dataset includes 4 jobs:
 
 1) A simple single-protein job modeling the structure of the [_Sabethes Cyaneus_]() Piwi protein
@@ -141,22 +141,23 @@ This separation helps you reuse feature outputs, run many inference configuratio
 ### The CPU-Only Pipeline: Generating Alignments (Step 1)
 
 The first stage of AlphaFold3 prepares all input features needed for structure prediction. This step is entirely CPU-driven and dominated by database searches and feature construction.
-What the data pipeline does (CPU-only)
+
+**What the data pipeline does (CPU-only)**
 
 - Inputs: your `fold_input.json` files and the AF3 reference databases.
 - Actions: run MMseqs2/HMMER searches, fetch templates (when enabled), and build MSA/template feature bundles.
 - Outputs: per-job feature directories packaged as `<job>.data_pipeline.tar.gz` for the inference stage.
 
 Notes:
-- Data-stage jobs are CPU-bound and scale to many sequences in parallel.
+- Data-stage jobs are CPU-bound and scale to many sequences in parallel across different machines.
 - AF3 databases are large (~750 GB); use CHTC execution points (EPs) with pre-staged databases when available to avoid repeated transfers and long queue waits.
 
 ### The GPU-Accelerated Pipeline: Structural Prediction (Step 2)
 Once the data pipeline has produced MSAs and templates, AF3’s second stage uses this information to generate atomic-resolution structural models.
 
-What the inference pipeline does (GPU)
+**What the inference pipeline does (GPU)**
 
-- Inputs: feature tarballs from the data pipeline and AF3 model weights.
+- Inputs: feature tarballs from the data pipeline (`<job>.data_pipeline.tar.gz`) and AF3 model weights (`af3.bin.zst`).
 - Actions: expand features, load model weights, run AF3 inference to generate structures and confidence metrics.
 - Outputs: `<job>.inference_pipeline.tar.gz` containing ranked PDBs and metadata.
 
