@@ -139,7 +139,7 @@ AF3 converts sequences into features (MSAs, templates) and uses a diffusion mode
 
 This separation helps you reuse feature outputs, run many inference configurations without re-running searches, and assign resources (CPU vs GPU) efficiently on CHTC.
 
-### The CPU-Only Pipeline: Generating Alignments (Step 1)
+### The CPU-Only Pipeline: Generating Alignments (Stage 1)
 
 The first stage of AlphaFold3 prepares all input features needed for structure prediction. This step is entirely CPU-driven and dominated by database searches and feature construction.
 
@@ -153,7 +153,7 @@ Notes:
 - Data-stage jobs are CPU-bound and scale to many sequences in parallel across different machines.
 - AF3 databases are large (~750 GB); use CHTC execution points (EPs) with pre-staged databases when available to avoid repeated transfers and long queue waits.
 
-### The GPU-Accelerated Pipeline: Structural Prediction (Step 2)
+### The GPU-Accelerated Pipeline: Structural Prediction (Stage 2)
 Once the data pipeline has produced MSAs and templates, AF3’s second stage uses this information to generate atomic-resolution structural models.
 
 **What the inference pipeline does (GPU)**
