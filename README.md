@@ -1,8 +1,10 @@
 # Predicting Protein Structures with AlphaFold3 on the CHTC GPU Capacity
 
+## Introduction
+
 A two-phase workflow: alignment generation → structure prediction
 
-AlphaFold3 (AF3) is a next-generation biomolecular structure prediction system capable of modeling multichain protein complexes, DNA/RNA interactions, ligands, and modified residues (e.g., 2′-O-methylated RNAs or glycosylated amino acids). This guide provides a step-by-step workflow for running AF3 on the CHTC HTC ecosystem, including how to structure your project, prepare input JSON files, run many inference jobs with HTCondor, and transfer your inputs/results using OSDF.
+AlphaFold3 (AF3) predicts atomic-resolution biomolecular structures for proteins, nucleic acids, and complexes. This guide walks you through running AF3 on CHTC: organize your project, prepare input JSONs, submit HTCondor jobs, and transfer inputs/results using OSDF.
 
 AlphaFold3 workloads in high-throughput environments are best organized into two separate job types:
 * **Step 1: Generating the Alignments (Data-Only Pipeline)**
@@ -27,11 +29,7 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
 
 ![Workflow_Diagram.png](.images/Workflow_Diagram.png)
 
-> [!NOTE]
-> If you are new to running jobs on CHTC, complete the CHTC ["Roadmap to getting started
-"](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and our ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission) guide before starting this tutorial.
-
-**Let’s get started!**
+**Start here**
 - [Tutorial Setup](#tutorial-setup)
    * [Assumptions](#assumptions)
    * [Prerequisites](#prerequisites)
@@ -63,7 +61,7 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
 
 ## Tutorial Setup
 
-### Assumptions
+### Assumptions and Expectations
 
 This tutorial assumes that you:
 
@@ -72,6 +70,13 @@ This tutorial assumes that you:
 * Are familiar with HTCondor job submission, including writing simple `.sub` files and tracking job status with `condor_q`
 * Have access to a machine with a GPU-enabled execution environment (provided automatically via CHTC's GPU Open Capacity)
 * Have sufficient disk quota and file permissions in your CHTC `/home` and `/staging` directories
+
+> [!NOTE]
+> If you are new to running jobs on CHTC, complete the CHTC ["Roadmap to getting started
+"](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and our ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission) guide before starting this tutorial.
+
+#### Time Estimation
+Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline execution typically takes 30 minutes or more depending on sequence length and cluster load. Small test runs using `USE_SMALL_DB=1` often complete in 10–30 minutes.
 
 ### Prerequisites
 
@@ -89,75 +94,78 @@ This tutorial assumes that you:
     ssh user.name@ap####.chtc.wisc.edu
     ```
 
-To obtain a copy of the tutorial files, you can:
+2. To obtain a copy of the tutorial files, you can:
 
 * Clone the repository:
 
   ```bash
   git clone https://github.com/dmora127/tutorial-CHTC-AF3.git
   cd tutorial-CHTC-AF3/
-  bash tutorial-setup.sh <username>
   ```
   _This script creates the directory structure in your home directory `/home/<user.name>/tutorial-CHTC-AF3/` and CHTC directory `/staging/<netID>/tutorial-CHTC-AF3/`, along with several subdirectories used in this tutorial._
 
-* Or download the toy dataset using Pelican **CURRENT UNAVAILBLE - WORK IN PROGRESS**:
+3. Create a directory in your `/staging/<netid>/` path titled `tutorial-CHTC-AF3`.
 
   ```bash
-  pelican object get [PENDING PELICAN LINK] ./
+  mkdir /staging/<netid>/tutorial-CHTC-AF3/
   ```
+  
+  You should upload your AlphaFold3 model weights (`af3.bin.zst`) to this path. If you do not already have them, you will need to obtain them from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters). **You MUST have these weights before proceeding as they are required to run the inference pipeline of AlphaFold3.** Model weights can take several days to weeks to be approved. 
+  
+  You can upload your `af3.bin.zst` using `scp`, `sftp`, `rsync` or another file transfer client, such as Cyberduck or WinSCP. For more information about uploading files to CHTC, visit our [Transfer Files between CHTC and your Computer](https://chtc.cs.wisc.edu/uw-research-computing/transfer-files-computer) guide. 
+
+#### Toy Dataset
+A sample toy dataset has been included with this repository under `Toy_Dataset/input.csv`. You can use this CSV with the `scripts/generate_job_directories.py` helper script, as described in [Setting Up AlphaFold3 Input JSONs and Job Directories](#setting-up-alphafold3-input-jsons-and-job-directories). The toy dataset includes 4 jobs:
+
+1) A simple single-protein job modeling the structure of the [_Sabethes Cyaneus_]() Piwi protein
+2) A Protein-RNA job modeling the [_Aedes aegypti_]() Piwi protein complexed with a piwi-interacting RNA. 
+3) A Protein-RNA-RNA job modeling the [_Aedes albopictus_]() Piwi protein complexed with a piwi-interacting RNA and a target RNA. 
+4) A tetrameric complex of the [_Aedes aegypti_]() Actin protein. 
+
+These examples help illustrate some of the potential use-cases of running AlphaFold3 on CHTC. 
+
 
 ## Understanding the AlphaFold3 Workflow
 
 AlphaFold3 (AF3) uses a two-stage workflow that separates alignment generation from structure prediction. This separation allows AF3 to run efficiently in high-throughput environments like CHTC, where jobs may need to scale across hundreds or thousands of independent sequences.
 
-At a high level, AF3 works by transforming biological sequences into a structured representation (MSAs, templates, and features) and then using a diffusion-based deep learning model to iteratively refine the predicted 3D structure. The data pipeline produces all the information AF3 needs to understand evolutionary context, residue co-variation, structural homology, and template similarity. The inference pipeline uses that information, together with model weights, to construct atomic-level predictions and associated confidence metrics.
+AF3 converts sequences into features (MSAs, templates) and uses a diffusion model to predict 3D structures. The workflow splits into two stages so you can scale each stage independently:
 
-On CHTC, these two stages map naturally to the heterogeneous compute environment:
+- **Stage 1 - Data pipeline (CPU)**: runs sequence searches and builds feature files (MSAs, templates, other inputs). This step utilized large sequence databases and is typically a major bottleneck for large batches of jobs. 
+- **Stage 2 - Inference Pipeline (GPU)** : loads feature files and model weights to produce predicted structures and metrics.
 
- - **Stage 1 (Data Pipeline)** runs on CPU-only execution points and is typically the bottleneck for large batches of sequences.
-
- - **Stage 2 (Inference Pipeline)** runs on GPU-enabled execution points in the GPU Lab and GPU Open Capacity.
-
-Separating these steps allows researchers to mix-and-match resource allocation strategies, reuse MSA/template features for multiple inference runs, and test alternative model parameters without re-running alignment-heavy jobs.
+This separation helps you reuse feature outputs, run many inference configurations without re-running searches, and assign resources (CPU vs GPU) efficiently on CHTC.
 
 ### The CPU-Only Pipeline: Generating Alignments (Step 1)
 
 The first stage of AlphaFold3 prepares all input features needed for structure prediction. This step is entirely CPU-driven and dominated by database searches and feature construction.
+What the data pipeline does (CPU-only)
 
-The data stage loads:
+- Inputs: your `fold_input.json` files and the AF3 reference databases.
+- Actions: run MMseqs2/HMMER searches, fetch templates (when enabled), and build MSA/template feature bundles.
+- Outputs: per-job feature directories packaged as `<job>.data_pipeline.tar.gz` for the inference stage.
 
-* Input JSON files (user-supplied)
-* AlphaFold3 reference databases (pre-staged on CHTC nodes)
-* AF3 container environment
+Notes:
+- Data-stage jobs are CPU-bound and scale to many sequences in parallel.
+- AF3 databases are large (~750 GB); use CHTC execution points (EPs) with pre-staged databases when available to avoid repeated transfers and long queue waits.
 
-The data pipeline requires:
-
-* Database searches are CPU-intensive and parallelize extremely well.
-* Storage needs are substantial (~750 GB of AF3 databases), so CHTC provides pre-staged databases on select nodes.
-* Running these jobs on GPU nodes would unnecessarily waste GPU time, increase GPU queue pressure, and reduce throughput.
-
-This stage can be run for dozens, hundreds, or thousands of sequences simultaneously, making it ideal for HTC workloads.
-
-## The GPU-Accelerated Pipeline: Structural Prediction (Step 2)
-
+### The GPU-Accelerated Pipeline: Structural Prediction (Step 2)
 Once the data pipeline has produced MSAs and templates, AF3’s second stage uses this information to generate atomic-resolution structural models.
 
-The inference stage loads:
+What the inference pipeline does (GPU)
 
-* precomputed MSAs and template features (from Step 1)
-* model weights (user-supplied)
-* AF3 container environment
+- Inputs: feature tarballs from the data pipeline and AF3 model weights.
+- Actions: expand features, load model weights, run AF3 inference to generate structures and confidence metrics.
+- Outputs: `<job>.inference_pipeline.tar.gz` containing ranked PDBs and metadata.
 
-The inference pipeline requires:
-
-* Varying GPU memory capacity for complexes and nucleic acid assemblies
-
-CHTC’s GPU Lab and GPU Open Capacity provide the necessary range of GPUs and allow users to scale inference jobs across many machines in parallel.
+Notes:
+- Inference is GPU-bound and requires selecting GPUs with sufficient memory for your token count. You can learn more about our recommended GPU memory requirements by reviewing the [Key AF3 GPU considerations](#key-af3-gpu-considerations) section at the end of this tutorial. 
+- Use unified memory mode for very large jobs (see the `--enable_unified_memory` option), but expect slower performance.
 
 ## Running AlphaFold3 on CHTC
 
 ### Set Up Your Software Environment
-CHTC maintains a shared Apptainer container for AlphaFold3, which we **highly recommend most researchers use on CHTC's systems**. However, if you wish to build your own AlphaFold3 container (for example, to include custom models or software versions), follow the steps below to create your own Apptainer container image.
+CHTC provides a shared Apptainer container for AF3 (recommended). If you prefer a custom image, build a Docker image locally and convert it to an Apptainer image on the Access Point (steps below).
 
 <details>
 <summary>Click to expand: Building Your Own AlphaFold3 Apptainer Container (Advanced)</summary>
@@ -196,7 +204,11 @@ CHTC maintains a shared Apptainer container for AlphaFold3, which we **highly re
 
 ### Data Wrangling and Preparing AlphaFold3 Inputs
 
-In this section, we will prepare the input files and job directories needed to run AlphaFold3 on CHTC. This includes creating input JSON files for each protein sequence and organizing them into job-specific directories.
+Prepare input files and job directories. The workflow is:
+
+1. Create a CSV manifest of sequences (see `Toy_Dataset/input.csv`).
+2. Run `scripts/generate-job-directories.py` to create per-job folders under `AF3_Jobs/`.
+3. Confirm each job directory contains `data_inputs/fold_input.json` (and `inference_inputs/` as needed).
 
 #### Setting Up AlphaFold3 Input JSONs and Job Directories
 Alphafold3 requires input JSON files that contain the input query sequence(s) along with their corresponding metadata, such as chain IDs, sequence names, and molecule type. Additionally, if you are using precomputed MSAs and templates, these JSON files should also reference the paths to them. For this tutorial, we will create individual JSON files for each protein sequence. Each AlphaFold3 job will have its own directory containing the input JSON file and any associated supporting files, such as
@@ -223,7 +235,7 @@ As your jobs progress through the two phases of the AlphaFold3 workflow, the out
 └── node9.inference_pipeline.tar.gz        # tar.gz output from inference pipeline (final results)
 ```
 
-We need to setup a job directory for each AlphaFold3 job we plan to run. Each job directory will contain the necessary input JSON files and will be used to store the output files generated during the two phases of the AlphaFold3 workflow. We can use a simple bash script to automate the creation of these job directories and input JSON files.
+Each job directory holds the inputs and outputs for one AF3 run. Automate creation with the provided generator script (`scripts/generate-job-directories.py`).
 
 1. Setup a CSV manifest containing your protein sequences in FASTA format in the `data/protein_sequences/` directory. Each FASTA file should contain a single protein sequence. The CSV should follow this format: 
 
@@ -248,10 +260,10 @@ We need to setup a job directory for each AlphaFold3 job we plan to run. Each jo
     ProteinComplex,protein,'"A", "B", "C"',MKTAYIAKQRQIS
     ```
 
-2. Run the helper script in `scripts/setup_af3_jobs.sh` to read the CSV manifest and create the necessary job directories and input JSON files for each protein sequence.:
+2. Run the helper script in `scripts/generate-job-directories.py` to read the CSV manifest and create the necessary job directories and input JSON files for each protein sequence.:
 
     ```bash
-   ./scripts/setup_af3_jobs.sh --manifest data/protein_sequences/manifest.csv --output_dir AF3_Jobs/
+   python3 ./scripts/generate-job-directories.py --manifest data/protein_sequences/manifest.csv --output_dir AF3_Jobs/
     ```
 
 3. Verify that the job directories and input JSON files have been created correctly:
@@ -264,7 +276,7 @@ We need to setup a job directory for each AlphaFold3 job we plan to run. Each jo
 
 #### Preparing Your _List of (AlphaFold) Jobs_
 
-Often you will hear the term "list of jobs" when working with HTCondor. A "list of jobs" is a simple way to specify multiple jobs to be run using a single HTCondor submit file. If you are familar with HTCondor, you may have used the `queue` command in your submit files to specify multiple jobs. HTCondor uses this `queue` statement to process multiple job submissions in one single submit file. Each job is defined by a set of arguments passed to the executable. This constitutes a "list of jobs".
+ Often you will hear the term "list of jobs" when working with HTCondor. A "list of jobs" is a simple way to specify multiple jobs to be run using a single HTCondor submit file. If you are familiar with HTCondor, you may have used the `queue` command in your submit files to specify multiple jobs. HTCondor uses this `queue` statement to process multiple job submissions in one single submit file. Each job is defined by a set of arguments passed to the executable. This constitutes a "list of jobs".
 
 There are many ways to create a "list of jobs" directly in your HTCondor submit files. For example, you can use the `queue` command with a `from` clause to read job arguments from a file or use the `queue` command with a `matching files` clause to generate jobs based on files in a directory. However, when working with large numbers of jobs, it is often more convenient to use a separate file to list the jobs you want to run. This file is referred to as a "list of jobs".
 
@@ -306,7 +318,7 @@ requirements = (HasAlphafold3 == true)
     cd ~/tutorial-CHTC-AF3/
    ```
 
-2. Review your Data Pipeline executable script `scripts/data_pipleine.sh`. Generally, no changes will be necessary. You should, however, review the following information and options below as your AF3 jobs may require additional non-default options.
+2. Review your Data Pipeline executable script `scripts/data_pipeline.sh`. Generally, no changes will be necessary. You should, however, review the following information and options below as your AF3 jobs may require additional non-default options.
 
     #### Overview: AlphaFold3 Data Pipeline Executable (Data-Only Stage)
 
@@ -323,7 +335,7 @@ requirements = (HasAlphafold3 == true)
 
     #### 1. Checking for Pre-Staged AF3 Databases
 
-    CHTC hosts a copy of the AlphaFold3 databases locally on certain machines. Machines with these databases advertise this resource availability using the `HasAlphafold3` HTCondor MachineAd. The script is able to run on machines with/without these databases pre-loaded. The script inspects `.machine.ad` to see whether the matched machine advertises the availbility of AF3 databases:
+    CHTC hosts a copy of the AlphaFold3 databases locally on certain machines. Machines with these databases advertise this resource availability using the `HasAlphafold3` HTCondor MachineAd. The script is able to run on machines with/without these databases pre-loaded. The script inspects `.machine.ad` to see whether the matched machine advertises the availability of AF3 databases:
     
     ```bash
     HasAlphafold3 = true
@@ -395,7 +407,7 @@ requirements = (HasAlphafold3 == true)
     
     These are returned to the submit host.
 
-3. Create your submit file `data_pipeline.sub`. The submit file below works out-of-the-box (if you've setup your directories as specified in section [Setting Up AlphaFold3 Input JSONs and Job Directories]()). You can specify additional parameters for the exectuable in the `arguments` attribute as needed. Refer to the [AlphaFold3 Data Pipeline Executable - Command-Line Options]() section above for available options.
+3. Create your submit file `data_pipeline.sub`. The submit file below works out-of-the-box (if you've setup your directories as specified in section [Setting Up AlphaFold3 Input JSONs and Job Directories]()). You can specify additional parameters for the executable in the `arguments` attribute as needed. Refer to the [AlphaFold3 Data Pipeline Executable - Command-Line Options]() section above for available options.
 
     ```bash
     # CHTC maintained container for AlphaFold3 as of January 2025
@@ -432,7 +444,7 @@ requirements = (HasAlphafold3 == true)
       # full requirements
       request_memory = 8GB
       # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
-      request_disk = 700000 - ( (TARGET.HasAlphaFold3?: 1) * 650000)
+      request_disk = 700000 - ( (TARGET.HasAlphafold3?: 1) * 650000)
       request_cpus = 8
       arguments = --work_dir_ext $(Cluster)_$(Proc) 
     endif
@@ -448,7 +460,7 @@ The submit files will attempt to match to machines that are advertising the `Has
 The script will also check the matched machine's MachineAd, after the job has matched, to see if the `HasAlphafold3` attribute is set to `true`. If it is, the submit file will request significantly less disk space, as the databases are already present on the machine. If the attribute is not set to `true`, the submit file will request more disk space to accommodate the database transfer. Lower disk requests can lead to increased number of running jobs, as the scheduler has more flexibility in matching jobs to machines.
 
 > [!TIP]  
-> AlphaFold3 jobs can be resource-intensive, especially when using the very conserved query sequences. Conserved sequenced can generally **very deep alignments** which will require signifantly more memory. If you encounter out-of-memory errors during job execution, consider increasing the `request_memory` attribute in your submit file. You can also utilize the `retry_request_memory = <memory/expression>` command in your submit file to request a retry if the job holds for an out-of-memory error. For more information on how to use `retry_request_memory`, visit our [Request variable memory](https://chtc.cs.wisc.edu/uw-research-computing/variable-memory#use-retry_request_memory) documentation page.
+> AlphaFold3 jobs can be resource-intensive, especially with highly conserved query sequences. Conserved sequences can generate very deep alignments, which may require significantly more memory. If you encounter out-of-memory errors during job execution, consider increasing the `request_memory` attribute in your submit file. You can also utilize the `retry_request_memory = <memory/expression>` command in your submit file to request a retry if the job holds for an out-of-memory error. For more information on how to use `retry_request_memory`, visit our [Request variable memory](https://chtc.cs.wisc.edu/uw-research-computing/variable-memory#use-retry_request_memory) documentation page.
 
 4. Submit your data-pipeline jobs:
 
@@ -481,7 +493,7 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
     cd ~/tutorial-CHTC-AF3/
    ```
 
-2. Review your Data Pipeline executable script `scripts/inference_pipleine.sh`. Generally, no changes will be necessary. You should, however, review the following information and options below as your AF3 jobs may require additional non-default options.
+2. Review your Data Pipeline executable script `scripts/inference_pipeline.sh`. Generally, no changes will be necessary. You should, however, review the following information and options below as your AF3 jobs may require additional non-default options.
 
     #### Overview: AlphaFold3 Inference Pipeline Executable
 
@@ -616,7 +628,7 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
 
     This ensures minimal disk usage on execute nodes and prepares the job sandbox for automatic cleanup by HTCondor.
 
-3. Create your submit file `inference_pipeline.sub`. You will need to edit the `MODEL_WEIGHT_PATH` **and** `gpus_minimum_memory`. You can specify additional parameters for the exectuable in the `arguments` attribute as needed. Refer to the [AlphaFold3 Data Pipeline Executable - Command-Line Options]() section above for available options.
+3. Create your submit file `inference_pipeline.sub`. You will need to edit the `MODEL_WEIGHT_PATH` **and** `gpus_minimum_memory`. You can specify additional parameters for the executable in the `arguments` attribute as needed. Refer to the [AlphaFold3 Data Pipeline Executable - Command-Line Options]() section above for available options.
 
     ```bash
     container_image = file:///staging/groups/glbrc_alphafold/af3/alphafold3.minimal.22Jan2025.sif
@@ -738,6 +750,24 @@ Now that you've successfully run the full AlphaFold3 two-stage workflow on the C
   * Protein–RNA or protein–DNA complexes 
   * Ligands or modified residues (e.g., 2′-O-methyl RNA, PTMs)
 * Re-use the data pipeline outputs to run multiple inference configurations (different seeds, different AF3 options) without recomputing MSAs.
+
+## Glossary
+
+- **AF3 / AlphaFold3:** A diffusion-based deep learning system that predicts atomic-resolution structures for proteins, nucleic acids, and complexes.
+- **MSA (Multiple Sequence Alignment):** An alignment of homologous sequences used to infer evolutionary relationships and structural constraints.
+- **Template:** An experimentally determined structure (e.g., from PDB) used to guide modeling when available.
+- **Fold input JSON / fold_input.json:** The AF3 input file containing sequences, chain IDs, and optional references to precomputed features.
+- **Data pipeline:** The CPU stage that runs sequence searches (MMseqs2/HMMER), collects templates, and generates MSA/template features for inference.
+- **Inference pipeline:** The GPU stage that loads model weights and feature files to produce predicted structures and metrics.
+- **Model weights:** The trained parameters required by AF3 to perform inference (typically provided as `.bin` or `.bin.zst` files).
+- **Tarball (.tar.gz):** A compressed archive used to package pipeline outputs for transfer back to the submit host.
+- **HTCondor submit file (.sub):** A job description file used by HTCondor to submit tasks to the HTC system.
+- **Apptainer:** A container runtime (formerly Singularity) commonly used on HPC/HTC systems to run reproducible environments.
+- **Tokens:** A unit of sequence length used by AF3; roughly 1.2 × residue count across chains is a common token estimate.
+- **Unified memory:** A mode that allows AF3 to use system RAM in addition to GPU memory to accommodate very large jobs (slower than GPU-only execution).
+- **OSDF:** CHTC's object-store/file-transfer mechanisms used for staging or retrieving large files (used in some transfer examples).
+- **Pelican:** A data-transfer tool used to fetch example datasets or objects (see Pelican object storage usage in the repo).
+- **JAX:** The numerical computing library used by AF3 for model execution on CPU/GPU backends.
 
 🚀 Run Larger Analyses
 Once you’re comfortable with the basics, try:

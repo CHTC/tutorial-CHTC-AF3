@@ -28,7 +28,7 @@ else
   # full requirements
   request_memory = 8GB
   # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
-  request_disk = 700000 - ( (TARGET.HasAlphaFold3?: 1) * 650000)
+  request_disk = 700000 - ( (TARGET.HasAlphafold3?: 1) * 650000)
   request_cpus = 8
   arguments = --work_dir_ext $(Cluster)_$(Proc) 
 endif
