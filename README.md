@@ -108,9 +108,9 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
 
 3. Create a directory in your `/staging/<netid>/` path titled `tutorial-CHTC-AF3`.
 
-  ```bash
-  mkdir /staging/<netid>/tutorial-CHTC-AF3/
-  ```
+    ```bash
+    mkdir /staging/<netid>/tutorial-CHTC-AF3/
+    ```
   
   You should upload your AlphaFold3 model weights (`af3.bin.zst`) to this path. If you do not already have them, you will need to obtain them from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters). **You MUST have these weights before proceeding as they are required to run the inference pipeline of AlphaFold3.** Model weights can take several days to weeks to be approved. 
   
