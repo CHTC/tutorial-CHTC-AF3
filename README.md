@@ -111,6 +111,8 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
     mkdir /staging/<netid>/tutorial-CHTC-AF3/
     ```
   
+4. Upload your AlphaFold3 Model Weights (`af3.bin.zst`) to `/staging/<netID>/tutorial-CHTC-AF3/`
+
     You should upload your AlphaFold3 model weights (`af3.bin.zst`) to this path. If you do not already have them, you will need to obtain them from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters). **You MUST have these weights before proceeding as they are required to run the inference pipeline of AlphaFold3.** Model weights can take several days to weeks to be approved. 
 
     You can upload your `af3.bin.zst` using `scp`, `sftp`, `rsync` or another file transfer client, such as Cyberduck or WinSCP. For more information about uploading files to CHTC, visit our [Transfer Files between CHTC and your Computer](https://chtc.cs.wisc.edu/uw-research-computing/transfer-files-computer) guide. 
