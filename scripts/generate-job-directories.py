@@ -87,9 +87,22 @@ def parse_molecules(row_dict):
         if type_key not in row_dict:
             break
 
-        mol_type  = row_dict[type_key].strip()
-        mol_chain = row_dict[chain_key].strip()
-        mol_seq   = row_dict[seq_key].strip()
+        mol_type_val  = row_dict.get(type_key)
+        mol_chain_val = row_dict.get(chain_key)
+        mol_seq_val   = row_dict.get(seq_key)
+
+        # Allow partially empty trailing triplets; stop cleanly
+        if mol_type_val is None and mol_chain_val is None and mol_seq_val is None:
+            break
+
+        # Skip this molecule if any required field is missing or empty
+        if not mol_type_val or not mol_chain_val or not mol_seq_val:
+            idx += 1
+            continue
+
+        mol_type  = mol_type_val.strip()
+        mol_chain = mol_chain_val.strip()
+        mol_seq   = mol_seq_val.strip()
 
         if mol_type and mol_chain and mol_seq:
             molecules.append(build_molecule_block(mol_type, mol_chain, mol_seq))
