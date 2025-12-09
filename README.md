@@ -19,7 +19,7 @@ AlphaFold3 workloads in high-throughput environments are best organized into two
 
 You will learn how to:
 
-* **Understand the overall computational architecture of AlphaFold3 on CHTC**, including how the data-generation and inference stages map to CPU and GPU resources. 
+* **Understand the overall workflow of AlphaFold3 on CHTC**, including how the data-generation and inference stages map to CPU and GPU resources. 
 * **Design, organize, and manage large-scale AF3 workloads**, including preparing inputs, structuring job directories, and generating automated job manifests. 
 * **Leverage CHTC’s GPU capacity for high-throughput structure prediction**, including selecting appropriate resources based on input complexity. 
 * **Use containers, staged databases, and HTCondor data-transfer** mechanisms to build reproducible, portable, and scalable AF3 workflows. 
@@ -45,7 +45,7 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
       + [Set Up Your Software Environment](#set-up-your-software-environment)
       + [Data Wrangling and Preparing AlphaFold3 Inputs](#data-wrangling-and-preparing-alphafold3-inputs)
          - [Setting Up AlphaFold3 Input JSONs and Job Directories](#setting-up-alphafold3-input-jsons-and-job-directories)
-            * [Automate creation with the provided generator script (`scripts/generate-job-directories.py`).](#automate-creation-with-the-provided-generator-script-scriptsgenerate-job-directoriespy)
+            * [Automate creation with the provided generator script.](#automate-creation-with-the-provided-generator-script-scriptsgenerate-job-directoriespy)
          - [Preparing Your _List of (AlphaFold) Jobs_](#preparing-your-list-of-alphafold-jobs)
       + [Submit Your AlphaFold3 Jobs - CPU-Intensive Alignment Generation (Step 1)](#submit-your-alphafold3-jobs---cpu-intensive-alignment-generation-step-1)
          - [AlphaFold3 Databases Availability on CHTC](#alphafold3-databases-availability-on-chtc)
