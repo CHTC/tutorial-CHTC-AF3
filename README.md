@@ -243,7 +243,7 @@ Each job directory holds the inputs and outputs for one AF3 run.
 
 ##### Automate creation with the provided generator script (`scripts/generate-job-directories.py`).
 
-1. Setup a CSV manifest containing your protein sequences in FASTA format in the `data/protein_sequences/` directory. Each FASTA file should contain a single protein sequence. The CSV should follow this format: 
+1. Setup a CSV manifest containing your protein sequences in FASTA format in the `data/protein_sequences/` directory. The CSV should follow this format: 
 
     ```bash
     job_name,molecule_type,chain_id,sequence
@@ -251,7 +251,7 @@ Each job directory holds the inputs and outputs for one AF3 run.
     ProteinB,protein,A,GAVLILALLAVF
     ```
     
-    If you plan to model multiple molecules, simply add more columns to the CSV manifest. For example, if you have two proteins and one DNA molecule, your CSV might look like this:
+    If you plan to model multiple molecules, simply add more columns to the CSV manifest. For example, if you have two proteins complex or a protein and a DNA molecule, your CSV might look like this:
     
     ```bash
     job_name,molecule_type,chain_id,sequence
@@ -259,11 +259,11 @@ Each job directory holds the inputs and outputs for one AF3 run.
     ProteinB,protein,A,GAVLILALLAVF,dna,B,GCGTACGTAGCTAGC
     ```
     
-    You can also model multimeric complexes by including multiple chain_ids in the CSV manifest. Each chain_id must be wrapped in double-quotes `(")` and the full chain_id set must be wrapped in single quotes `(')`. For example, if you have a trimeric protein complex, your CSV might look like this:
+    You can also model multimeric complexes by including multiple chain_ids in the CSV manifest. Write each chain_id separated by a pipe character `(|)`. For example, if you have a trimeric protein complex, your CSV might look like this:
     
     ```bash
     job_name,molecule_type,chain_id,sequence
-    ProteinComplex,protein,'"A", "B", "C"',MKTAYIAKQRQIS
+    ProteinComplex,protein,A|B|C,MKTAYIAKQRQIS
     ```
 
 2. Run the helper script in `scripts/generate-job-directories.py` to read the CSV manifest and create the necessary job directories and input JSON files for each protein sequence.:
