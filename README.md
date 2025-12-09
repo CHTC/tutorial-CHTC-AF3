@@ -72,7 +72,6 @@ This tutorial assumes that you:
 * Have basic command-line experience (e.g., navigating directories, using bash, editing text files)
 * Have a working CHTC account and can log into an Access Point (e.g., ap2001/2002.chtc.wisc.edu)
 * Are familiar with HTCondor job submission, including writing simple `.sub` files and tracking job status with `condor_q`
-* Have access to a machine with a GPU-enabled execution environment (provided automatically via CHTC's GPU Open Capacity)
 * Have sufficient disk quota and file permissions in your CHTC `/home` and `/staging` directories
 
 > [!NOTE]
@@ -90,7 +89,7 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
 3. [X] AlphaFold3 Model Weights. Request the AF3 model weights from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters).
 
 > [!WARNING]
-> Requesting AlphaFold3 model weights requires agreeing to DeepMind's terms of service. Ensure you comply with all licensing and usage restrictions when using AF3 for research. This tutorial does not distribute AF3 model weights. Requesting the weights can take up to several weeks. Ensure you have them before starting the tutorial.
+> Requesting AlphaFold3 model weights requires agreeing to DeepMind's terms of service. Ensure you comply with all licensing and usage restrictions when using AF3 for research. This tutorial does not distribute AF3 model weights. **Requesting the weights can take up to several weeks.** Ensure you have them before starting the tutorial.
 
 #### Clone the Tutorial Repository
 
