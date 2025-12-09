@@ -269,7 +269,7 @@ Each job directory holds the inputs and outputs for one AF3 run.
 2. Run the helper script in `scripts/generate-job-directories.py` to read the CSV manifest and create the necessary job directories and input JSON files for each protein sequence.:
 
     ```bash
-   python3 ./scripts/generate-job-directories.py --manifest data/protein_sequences/manifest.csv --output_dir AF3_Jobs/
+   python3 ./scripts/generate-job-directories.py --manifest Toy_Dataset/input.csv --output_dir ./AF3_Jobs/
     ```
 
 3. Verify that the job directories and input JSON files have been created correctly:
@@ -278,11 +278,31 @@ Each job directory holds the inputs and outputs for one AF3 run.
    tree AF3_Jobs/
    ```
 
-   You should see a list of job directories corresponding to each protein sequence in your CSV manifest.
+   You should see a list of job directories corresponding to each protein sequence in your CSV manifest:
+
+   ```bash
+    AF3_Jobs/
+    ├── Job1_XP_053696736.1_Sabethes_cyaneus
+    │   ├── data_inputs
+    │   │   └── fold_input.json
+    │   └── inference_inputs
+    ├── Job2_XP_001663870.2_Aedes_aegypti
+    │   ├── data_inputs
+    │   │   └── fold_input.json
+    │   └── inference_inputs
+    ├── Job3_XP_029709661.2_Aedes_albopictus
+    │   ├── data_inputs
+    │   │   └── fold_input.json
+    │   └── inference_inputs
+    └── Job4_XP_001659963.1_Aedes_aegypti_Actin
+        ├── data_inputs
+        │   └── fold_input.json
+        └── inference_inputs
+   ```
 
 #### Preparing Your _List of (AlphaFold) Jobs_
 
- Often you will hear the term "list of jobs" when working with HTCondor. A "list of jobs" is a simple way to specify multiple jobs to be run using a single HTCondor submit file. If you are familiar with HTCondor, you may have used the `queue` command in your submit files to specify multiple jobs. HTCondor uses this `queue` statement to process multiple job submissions in one single submit file. Each job is defined by a set of arguments passed to the executable. This constitutes a "list of jobs".
+ Often you will hear the term "list of jobs" when working with HTCondor. A "list of jobs" is a simple term to specify multiple jobs being ran with an HTCondor submit file. If you are familiar with HTCondor, you may have used the `queue` command in your submit files to specify multiple jobs. HTCondor uses this `queue` statement to process multiple job submissions in one single submit file. Each job is defined by a set of arguments passed to the executable. This constitutes a "list of jobs".
 
 There are many ways to create a "list of jobs" directly in your HTCondor submit files. For example, you can use the `queue` command with a `from` clause to read job arguments from a file or use the `queue` command with a `matching files` clause to generate jobs based on files in a directory. However, when working with large numbers of jobs, it is often more convenient to use a separate file to list the jobs you want to run. This file is referred to as a "list of jobs".
 
@@ -300,6 +320,15 @@ There are many ways to create a "list of jobs" directly in your HTCondor submit 
     cat list_of_af3_jobs.txt
     ```
 
+    It should return an list of directories such as:
+
+    ```bash
+    Job1_XP_053696736.1_Sabethes_cyaneus
+    Job2_XP_001663870.2_Aedes_aegypti
+    Job3_XP_029709661.2_Aedes_albopictus
+    Job4_XP_001659963.1_Aedes_aegypti_Actin
+    ```
+
 > [!NOTE]  
 > Each line in `list_of_af3_jobs.txt` corresponds to a single AlphaFold3 job that will be executed using HTCondor. You can modify this file to add or remove jobs as needed. This file, functionally, is a one-column comma-separated values (CSV) file where each line represents a job name. You could add additional columns to this file if you wanted to pass more variables to your HTCondor jobs.
 
@@ -313,11 +342,7 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
 
 CHTC maintains a full, pre-extracted copy of the AlphaFold3 reference databases on a subset of CPU execute points. When your data-pipeline jobs match to one of these machines, they can use the local /alphafold3 directory directly, avoiding the costly transfer and extraction of several hundred gigabytes of database files. This dramatically reduces startup time, disk requirements, and overall job runtime. If a job lands on a machine without pre-staged databases, the script automatically falls back to unpacking the databases in the job’s scratch space, ensuring that every job can run regardless of where it matches.
 
-You can target these pre-staged database nodes specifically by adding the following requirement to your submit file:
-
-```bash
-requirements = (HasAlphafold3 == true)
-```
+You can target these pre-staged database nodes specifically by adding the requirement command `requirements = (HasAlphafold3 == true)` to your submit file:
 
 1. Change to your `tutorial-CHTC-AF3/` directory:
     ```bash
@@ -416,23 +441,21 @@ requirements = (HasAlphafold3 == true)
 3. Create your submit file `data_pipeline.sub`. The submit file below works out-of-the-box (if you've setup your directories as specified in section [Setting Up AlphaFold3 Input JSONs and Job Directories]()). You can specify additional parameters for the executable in the `arguments` attribute as needed. Refer to the [AlphaFold3 Data Pipeline Executable - Command-Line Options]() section above for available options.
 
     ```bash
-    # CHTC maintained container for AlphaFold3 as of January 2025
-    #container_image = osdf:///ospool/uw-shared/OSG-Staff/public/alphafold3/alphafold3.minimal.22Jan2025_v1.sif
+    # CHTC maintained container for AlphaFold3 as of December 2025
     container_image = file:///staging/groups/glbrc_alphafold/af3/alphafold3.minimal.22Jan2025.sif
     
     executable = scripts/data_pipeline.sh
     
-    log = ../logs/data_pipeline.log
+    log = ./logs/data_pipeline.log
     output = data_pipeline_$(Cluster)_$(Process).out
     error  = data_pipeline_$(Cluster)_$(Process).err
     
     initialdir = $(directory)
-    # transfer all files in the data_inputs directory
     transfer_input_files = data_inputs/
    
-   # transfer output files back to the submit node
-   transfer_output_files = $(directory).data_pipeline.tar.gz
-   transfer_output_remaps = "$(directory).data_pipeline.tar.gz=inference_inputs/$(directory).data_pipeline.tar.gz"
+    # transfer output files back to the submit node
+    transfer_output_files = $(directory).data_pipeline.tar.gz
+    transfer_output_remaps = "$(directory).data_pipeline.tar.gz=inference_inputs/$(directory).data_pipeline.tar.gz"
     
     should_transfer_files = YES
     when_to_transfer_output = ON_EXIT
@@ -455,7 +478,6 @@ requirements = (HasAlphafold3 == true)
       arguments = --work_dir_ext $(Cluster)_$(Proc) 
     endif
     
-    #queue directory matching job*
     queue directory from list_of_af3_jobs.txt
    ```
 
@@ -637,6 +659,7 @@ This stage **does not** require the full AlphaFold3 databases, only the model we
 3. Create your submit file `inference_pipeline.sub`. You will need to edit the `MODEL_WEIGHT_PATH` **and** `gpus_minimum_memory`. You can specify additional parameters for the executable in the `arguments` attribute as needed. Refer to the [AlphaFold3 Data Pipeline Executable - Command-Line Options]() section above for available options.
 
     ```bash
+    # CHTC maintained container for AlphaFold3 as of December 2025
     container_image = file:///staging/groups/glbrc_alphafold/af3/alphafold3.minimal.22Jan2025.sif
     
     executable = inference_pipeline.sh
@@ -819,6 +842,8 @@ AlphaFold3 jobs involve large and complex datasets, especially during the data p
   * Includes ranked PDBs, metrics, seeds, confidence scores
 
 For guides on how data movement works on the HTC system, see our [Data Staging and Transfer to Jobs](https://chtc.cs.wisc.edu/uw-research-computing/htc-job-file-transfer) guides.
+
+This AlphaFold3 recipe utilizes the locally-mounted AlphaFold3 databases by matching jobs for the `data_pipeline.sub` submit file **only** to EPs advertising the `HasAlphafold3 = True` MachineAd. This allows multiple jobs to *share* the locally-mounted databases, increasing the throughput of your data jobs. You can select to also match to EPs that do not have the AlphaFold3 databases locally-mounted by removing the `&& (Target.HasAlphafold3 == true)` requirement in your `data_pipeline.sub` submit file. The provided `data_pipeline.sh` executable file will automatically check if the matched machine has the expected AlphaFold3 database mount available to it, and if not it will copy the files using the Open Science Data Federation (OSDF). This can cause much longer job runtimes for jobs that land on machines without AlphaFold3 databases mounted as downloading the data can take >45 minutes. Reach out to the CHTC RCFs, if you are thinking of using this option to discuss this further. 
 
 ### GPUs
 

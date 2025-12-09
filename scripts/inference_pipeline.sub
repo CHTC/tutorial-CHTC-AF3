@@ -1,3 +1,4 @@
+# CHTC maintained container for AlphaFold3 as of December 2025
 container_image = file:///staging/groups/glbrc_alphafold/af3/alphafold3.minimal.22Jan2025.sif
 
 executable = inference_pipeline.sh

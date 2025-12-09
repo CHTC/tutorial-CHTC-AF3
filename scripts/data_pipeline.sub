@@ -1,19 +1,21 @@
-# CHTC maintained container for AlphaFold3 as of January 2025
-#container_image = osdf:///ospool/uw-shared/OSG-Staff/public/alphafold3/alphafold3.minimal.22Jan2025_v1.sif
+# CHTC maintained container for AlphaFold3 as of December 2025
 container_image = file:///staging/groups/glbrc_alphafold/af3/alphafold3.minimal.22Jan2025.sif
 
 executable = scripts/data_pipeline.sh
 
-log = ../../logs/data_pipeline.log
+log = ./logs/data_pipeline.log
 output = data_pipeline_$(Cluster)_$(Process).out
 error  = data_pipeline_$(Cluster)_$(Process).err
 
 initialdir = $(directory)
-# transfer all files in the data_inputs directory
 transfer_input_files = data_inputs/
 
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
+
+# transfer output files back to the submit node
+transfer_output_files = $(directory).data_pipeline.tar.gz
+transfer_output_remaps = "$(directory).data_pipeline.tar.gz=inference_inputs/$(directory).data_pipeline.tar.gz"
 
 # We need this to transfer the databases to the execute node
 Requirements = (Target.HasCHTCStaging == true) && (Target.HasAlphafold3 == true)
@@ -33,5 +35,4 @@ else
   arguments = --work_dir_ext $(Cluster)_$(Proc) 
 endif
 
-#queue directory matching job*
 queue directory from list_of_af3_jobs.txt
