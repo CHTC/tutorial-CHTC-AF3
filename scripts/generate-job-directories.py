@@ -20,52 +20,25 @@ import json
 import argparse
 
 
-# Optional: CCD mappings for 3′ 2′-O-methyl modifications
-CCD_MAP = {
-    "A": "MAD",   # 2'-O-methyl-A
-    "C": "OMC",
-    "G": "OMG",
-    "U": "OMU"
-}
-
-
+# Build a minimal AF3 JSON block for a single molecule.
+# Supports:
+#   - standard protein, RNA, or DNA sequences
+#   - single chain ("A") or multichain ("A|C|D") ➜ ["A", "C", "D"]
 def build_molecule_block(molecule_type, chain_id, sequence, apply_mods=True):
-    """
-    Build the AF3 JSON block for a single molecule.
-    Supports:
-        - single chain ("A")
-        - multichain ("A|C|D")  ➜ ["A", "C", "D"]
-    Supports automatic RNA 3'-O-methylation.
-    """
-
     sequence = sequence.strip()
 
-    # Convert chains: "A|B|C" → ["A","B","C"]
+    # Convert chains: "A|B|C" → ["A", "B", "C"]
     if "|" in chain_id:
         chains = [c.strip() for c in chain_id.split("|") if c.strip()]
     else:
         chains = chain_id.strip()  # single-chain mode
 
-    block = {
+    return {
         molecule_type: {
             "id": chains,
             "sequence": sequence
         }
     }
-
-    # Optional RNA modifications
-    if molecule_type.lower() == "rna" and apply_mods:
-        seq_u = sequence.upper()
-        last_base = seq_u[-1]
-        if last_base in CCD_MAP:
-            block[molecule_type]["modifications"] = [
-                {
-                    "modificationType": CCD_MAP[last_base],
-                    "basePosition": len(seq_u)
-                }
-            ]
-
-    return block
 
 
 def parse_molecules(row_dict):
@@ -110,7 +83,6 @@ def parse_molecules(row_dict):
         idx += 1
 
     return molecules
-
 
 def main():
     parser = argparse.ArgumentParser(description="Generate AF3 job directories for multi-molecule inputs.")
