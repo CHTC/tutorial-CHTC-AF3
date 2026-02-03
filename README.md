@@ -32,11 +32,7 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
 **Start here**
 * [Introduction](#introduction)
 * [Tutorial Setup](#tutorial-setup)
-  + [Assumptions and Expectations](#assumptions-and-expectations)
-  + [Prerequisites](#prerequisites)
 * [Understanding the AlphaFold3 Workflow](#understanding-the-alphafold3-workflow)
-  + [The CPU-Only Pipeline: Generating Alignments (Stage 1)](#the-cpu-only-pipeline-generating-alignments-stage-1)
-  + [The GPU-Accelerated Pipeline: Structural Prediction (Stage 2)](#the-gpu-accelerated-pipeline-structural-prediction-stage-2)
 * [Running AlphaFold3 on CHTC](#running-alphafold3-on-chtc)
   + [Set Up Your Software Environment](#set-up-your-software-environment)
   + [Data Wrangling and Preparing AlphaFold3 Inputs](#data-wrangling-and-preparing-alphafold3-inputs)
@@ -66,6 +62,7 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
 You will need the following before moving forward with the tutorial:
 
 1. [X] A CHTC HTC account. If you do not have one, request access at the [CHTC Account Request Page](https://chtc.cs.wisc.edu/uw-research-computing/form.html).
+1. [X] A CHTC "staging" folder. 
 2. [X] Basic familiarity with HTCondor job submission. If you are new to HTCondor, complete the CHTC ["Roadmap to getting started
 "](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and read the ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission).
 3. [X] AlphaFold3 Model Weights. Request the AF3 model weights from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters).
@@ -73,23 +70,19 @@ You will need the following before moving forward with the tutorial:
 > [!WARNING]
 > Requesting AlphaFold3 model weights requires agreeing to DeepMind's terms of service. Ensure you comply with all licensing and usage restrictions when using AF3 for research. This tutorial does not distribute AF3 model weights. **Requesting the weights can take up to several weeks.** Ensure you have them before starting the tutorial.
 
-### Assumptions and Expectations
-
-This tutorial assumes that you:
+This tutorial also assumes that you:
 
 * Have basic command-line experience (e.g., navigating directories, using bash, editing text files)
-* Have a working CHTC account and can log into an Access Point (e.g., ap2001/2002.chtc.wisc.edu)
-* Are familiar with HTCondor job submission, including writing simple `.sub` files and tracking job status with `condor_q`
 * Have sufficient disk quota and file permissions in your CHTC `/home` and `/staging` directories
 
 > [!NOTE]
 > If you are new to running jobs on CHTC, complete the CHTC ["Roadmap to getting started
 "](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and our ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission) guide before starting this tutorial.
 
-#### Time Estimation
+### Time Estimation
 Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline execution typically takes 30 minutes or more depending on sequence length and cluster load. Small test runs using `USE_SMALL_DB=1` often complete in 10–30 minutes.
 
-#### Clone the Tutorial Repository
+### Clone the Tutorial Repository
 
 1. Log into your CHTC account:
     
@@ -118,9 +111,9 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
 
     You can upload your `af3.bin.zst` using `scp`, `sftp`, `rsync` or another file transfer client, such as Cyberduck or WinSCP. For more information about uploading files to CHTC, visit our [Transfer Files between CHTC and your Computer](https://chtc.cs.wisc.edu/uw-research-computing/transfer-files-computer) guide. 
 
-#### About the Toy Dataset
+#### About the Dataset
 
-A sample toy dataset has been included with this repository under `Toy_Dataset/input.csv`. You can use this CSV with the `scripts/generate_job_directories.py` helper script, as described in [Setting Up AlphaFold3 Input JSONs and Job Directories](#setting-up-alphafold3-input-jsons-and-job-directories). The toy dataset includes four example sequences to illustrate different AlphaFold use cases:
+A set of sample sequences has been included with this repository under `Toy_Dataset/input.csv`. You can use this CSV "manifest" file with the `scripts/generate_job_directories.py` helper script, as described in [Setting Up AlphaFold3 Input JSONs and Job Directories](#setting-up-alphafold3-input-jsons-and-job-directories). The sample data includes four different sequences types to illustrate different AlphaFold use cases:
 
 1) Single-protein: the [_Sabethes Cyaneus_]() Piwi protein
 2) Protein-RNA:  the [_Aedes aegypti_]() Piwi protein complexed with a piwi-interacting RNA. 
