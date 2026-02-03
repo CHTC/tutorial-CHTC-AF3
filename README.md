@@ -124,7 +124,7 @@ A set of sample sequences has been included with this repository under `Toy_Data
 
 AlphaFold3 (AF3) uses a two-stage workflow that first converts sequences into features (MSAs, templates) and then uses a diffusion model to predict 3D structures: 
 
-- **Stage 1 - Data pipeline (CPU)**: runs sequence searches and builds feature files (MSAs, templates, other inputs). This step utilizes a large sequence databases and the disk space requirement (~750GB) is typically a significant bottleneck for large batches of jobs. 
+- **Stage 1 - Data pipeline (CPU)**: runs sequence searches and builds feature files (MSAs, templates, other inputs). This step utilizes large sequence databases and the disk space requirement (~750GB) is typically a significant bottleneck for large batches of jobs. 
 - **Stage 2 - Inference Pipeline (GPU)** : loads feature files and model weights to produce predicted structures and metrics.
 
 Running the AlphaFold workflow as two independent stages allows you to manage the needed computational resources (CPUs vs GPUs) more efficiently to maximize your throughput on the system. Separating the stages also allows for reuse, as the outputs of the data pipeline, such as your alignments, can be used for the inference pipeline when for jobs with shared biomolecules (for example, screening multiple ligands binding to the same protein).
