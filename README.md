@@ -43,7 +43,7 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
   + [Visualize Your AlphaFold3 Results](#visualize-your-alphafold3-results)
 * [Next Steps](#next-steps)
 * [Reference Material](#reference-material)
-  + [Overview: AlphaFold3 Data Pipeline Executable (Data-Only Stage)](#overview-alphafold3-data-pipeline-executable-data-only-stage))
+  + [Overview: AlphaFold3 Data Pipeline Executable (Data-Only Stage)](#overview-alphafold3-data-pipeline-executable-data-only-stage)
   + [Overview: AlphaFold3 Inference Pipeline Executable](#overview-alphafold3-inference-pipeline-executable)
   + [Glossary](#glossary)
   + [Software](#software)
@@ -246,8 +246,7 @@ This directory structure will be used for each sequence prediction workflow. Whi
         └── inference_inputs
    ```
 
-Our manifest file (`input.csv`) comes with four scenarios already. If you want to create
-your own file of inputs, read more below. 
+Our data manifest file (`input.csv`) comes with four scenarios already. If you want to create your own file of inputs, read more below. 
 
 <details><summary>Click to expand: Building Your Own Manifest File</summary>
 
@@ -315,7 +314,7 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
     ```bash
     cd ~/tutorial-CHTC-AF3/
    ```
-2. Review the Data Pipeline executable script `scripts/data_pipeline.sh`. For this tutorial, no changes will be necessary. However, **when you are ready to run your own jobs, please review the details in [link to section]()**, as your AF3 jobs may require additional non-default options.
+2. Review the Data Pipeline executable script `scripts/data_pipeline.sh`. For this tutorial, no changes will be necessary. However, **when you are ready to run your own jobs, please review the details in [link to section](#overview-alphafold3-data-pipeline-executable-data-only-stage)**, as your AF3 jobs may require additional non-default options.
 
 3. Create your submit file `data_pipeline.sub` in the top level of the cloned repository. The submit file below works out-of-the-box if you've setup your directories as specified in section [Setting Up AlphaFold3 Input JSONs and Job Directories](#data-wrangling-and-preparing-alphafold3-inputs)). You can specify additional parameters for the executable in the `arguments` attribute as needed. 
 
@@ -404,7 +403,7 @@ Once the data-pipeline jobs have finished generating alignments and features, th
     cd ~/tutorial-CHTC-AF3/
    ```
 
-2. Review your Data Pipeline executable script `scripts/inference_pipeline.sh`. Generally, no changes will be necessary. However, **when you are ready to run your own jobs, please review the details in [link to section]()**, as your AF3 jobs may require additional non-default options.
+2. Review your Data Pipeline executable script `scripts/inference_pipeline.sh`. Generally, no changes will be necessary. However, **when you are ready to run your own jobs, please review the details in [link to section](#overview-alphafold3-inference-pipeline-executable)**, as your AF3 jobs may require additional non-default options.
 
 3. Create your submit file `inference_pipeline.sub`. You will need to edit the `MODEL_WEIGHT_PATH` **and** `gpus_minimum_memory`. You can specify additional parameters for the executable in the `arguments` attribute as needed. 
 
