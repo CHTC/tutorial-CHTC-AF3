@@ -8,7 +8,15 @@ Manifest structure:
 Where molecule types can be:
     - protein
     - rna
+    - dna
     (extendable)
+
+Each output job directory is placed under:
+    output_dir/Job#_job_name/
+with a companion data_inputs/fold_input.json and empty inference_inputs/ directory created beside it.
+
+If multiple chains are desired for a molecule, use "|" to separate chain IDs in the molN_chain field:
+    e.g., "A|B|C" for chains A, B, and C
 
 Usage:
     python make_af3_jobs.py --manifest manifest.csv --output_dir AF3_Jobs
@@ -52,17 +60,17 @@ def parse_molecules(row_dict):
     idx = 1
 
     while True:
-        type_key  = f"mol{idx}_type"
+        type_key = f"mol{idx}_type"
         chain_key = f"mol{idx}_chain"
-        seq_key   = f"mol{idx}_seq"
+        seq_key = f"mol{idx}_seq"
 
         # Stop when we no longer find molN_type
         if type_key not in row_dict:
             break
 
-        mol_type_val  = row_dict.get(type_key)
+        mol_type_val = row_dict.get(type_key)
         mol_chain_val = row_dict.get(chain_key)
-        mol_seq_val   = row_dict.get(seq_key)
+        mol_seq_val = row_dict.get(seq_key)
 
         # Allow partially empty trailing triplets; stop cleanly
         if mol_type_val is None and mol_chain_val is None and mol_seq_val is None:
@@ -73,9 +81,9 @@ def parse_molecules(row_dict):
             idx += 1
             continue
 
-        mol_type  = mol_type_val.strip()
+        mol_type = mol_type_val.strip()
         mol_chain = mol_chain_val.strip()
-        mol_seq   = mol_seq_val.strip()
+        mol_seq = mol_seq_val.strip()
 
         if mol_type and mol_chain and mol_seq:
             molecules.append(build_molecule_block(mol_type, mol_chain, mol_seq))
@@ -84,13 +92,42 @@ def parse_molecules(row_dict):
 
     return molecules
 
+
+# description = "Generate AF3 job directories for multi-molecule inputs.")
+
 def main():
-    parser = argparse.ArgumentParser(description="Generate AF3 job directories for multi-molecule inputs.")
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description='''\
+        Generate AlphaFold3 job directories from a manifest CSV.
+
+        Manifest structure:
+            job_name, mol1_type, mol1_chain, mol1_seq, mol2_type, mol2_chain, mol2_seq, ...
+
+        Where molecule types can be:
+            - protein
+            - rna
+            - dna
+            (extendable)
+
+        Each output job directory is placed under:
+            output_dir/Job#_job_name/
+        with a companion data_inputs/fold_input.json and empty inference_inputs/ directory created beside it.
+
+        If multiple chains are desired for a molecule, use "|" to separate chain IDs in the molN_chain field:
+            e.g., "A|B|C" for chains A, B, and C
+
+        Usage:
+            python make_af3_jobs.py --manifest manifest.csv --output_dir AF3_Jobs --jobs-list list_of_jobs.txt (optional)
+        ''')
     parser.add_argument("--manifest", required=True, help="Path to manifest CSV")
     parser.add_argument("--output_dir", required=True, help="Where to create job directories")
+    parser.add_argument("--jobs-list", default="./list_of_af3_jobs.txt", help="Path to write job directory list (default: ./list_of_af3_jobs.txt)")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
+
+    jobs_list_path = args.jobs_list
+    jobs_list_fh = open(jobs_list_path, "w")
 
     with open(args.manifest, newline="") as csvfile:
         reader = csv.DictReader(csvfile)
@@ -125,7 +162,9 @@ def main():
                 json.dump(fold_json, jf, indent=2)
 
             print(f"[+] Created {job_dir_name} with {len(molecules)} molecules.")
+            jobs_list_fh.write(f"{job_dir_name}\n")
 
+    jobs_list_fh.close()
     print("\nAll multi-molecule AF3 job directories generated.")
 
 
