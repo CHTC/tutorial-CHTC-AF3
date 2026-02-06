@@ -2,11 +2,30 @@
 
 #set -x #for complete debugging
 
+function printstd() { echo "$@"; }            
+function printerr() { echo "ERROR: $@" 1>&2; }
+¶                                             
+function printinfo() {                        
+  if [[ $VERBOSE_LEVEL -ge 1 ]]; then         
+    printstd "INFO: $@"                       
+  fi                                          
+}                                             
+function printverbose() {                     
+  if [[ $VERBOSE_LEVEL -ge 2 ]]; then         
+    printstd "DEBUG: $@"                      
+  fi                                          
+}                                             
 # STAGING_DIR is used to find the Singularity image (and databases)
 # It can be left unused by specifing a container to run in
 # and using --extracted_database_path
 readonly STAGING_DIR=/staging/groups/glbrc_alphafold/af3
 
+# =======================
+# DEFAULT ARGUMENT VALUES
+# =======================
+
+# DB_DIR_STUB selects which database to use, either the full regular
+# database ("db") or the small test database ("db_small")
 DB_DIR_STUB=db
 
 # SINGIMG is used if we want to find a container. The script will 
@@ -26,24 +45,6 @@ VERBOSE_LEVEL=1 # 0 = silent, 1 = info, 2 = verbose
 # but not needed if we are sure that multiple copies of this script
 # will not overwrite each other
 WORK_DIR_EXT="random"
-
-# full path to extracted database
-# overrides $STAGING_DB_DIR and $DB_DIR_STUB
-EXTRACTED_DATABASE_PATH=""
-
-function printstd() { echo "$@"; }
-function printerr() { echo "ERROR: $@" 1>&2; }
-
-function printinfo() {
-  if [[ $VERBOSE_LEVEL -ge 1 ]]; then
-    printstd "INFO: $@"
-  fi
-}
-function printverbose() {
-  if [[ $VERBOSE_LEVEL -ge 2 ]]; then
-    printstd "DEBUG: $@"
-  fi
-}
 
 # full path to extracted database
 # overrides $STAGING_DB_DIR and $DB_DIR_STUB
@@ -83,12 +84,12 @@ while [[ $# -gt 0 ]]; do
       shift # past value
       ;;
     -v|--verbose)
-      VERBOSE=2
+      VERBOSE_LEVEL=2
       printinfo "Setting PRINT_SUMMARY and VERBOSE on"
       shift # past argument
       ;;
      -s|--silent)
-      VERBOSE=0
+      VERBOSE_LEVEL=0
       printinfo "Setting PRINT_SUMMARY and VERBOSE off" # this will not print
       shift # past argument
       ;;
@@ -117,7 +118,7 @@ while [[ $# -gt 0 ]]; do
       ;;
      -d|--extracted_database_path)
       EXTRACTED_DATABASE_PATH=`realpath "$2"`
-      printinfo "Setting EXTRACTED_DATABASE_PATH"
+      printinfo "Setting EXTRACTED_DATABASE_PATH: $EXTRACTED_DATABASE_PATH"
       shift # past argument
       shift # past value
       ;;
@@ -193,9 +194,9 @@ if [[ -n "$SINGIMG" ]] ; then
       exit 1
     fi
   fi
-  IMG_EXE_CMD="apptainer exec --nv ${SINGIMG_PATH}"
+  IMG_EXE_CMD="apptainer exec ${SINGIMG_PATH}"
 else
-  printverbose "Not calling apptainer as we are inside the container"
+  printverbose "Not calling apptainer because no container was defined"
 fi
 
 printinfo "SINGIMG_PATH   : $SINGIMG_PATH"
@@ -223,21 +224,24 @@ if [ -z "$EXTRACTED_DATABASE_PATH" ] ; then
               pdb_seqres_2022_09_28.fasta \
               rnacentral_active_seq_id_90_cov_80_linclust.fasta \
               nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta \
-              rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta ; do
+              rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta
+  do
     printinfo "Start decompressing: '${NAME}'"
     cat "${STAGING_DB_DIR}/${NAME}.zst" | \
         ${IMGEXEC} zstd --decompress > "${EXTRACTED_DATABASE_PATH}/${NAME}" &
   done
-  
+
+  printverbose "Waiting for decompressing to complete"
   wait # for all decompression to finish
   printverbose "Completed database installation"
 fi
 
-if [[ -n "$SINGIMG" ]] ; then
+if [[ -n "$SINGIMG_PATH" ]] ; then
   # TMPDIR is sometimes needed because jackhmmer sometimes runs out of 
   # space on the regular tmp drive if too many sequences match
   if [ -z "${WORK_TMP_DIR}" ] ; then
     WORK_TMP_DIR="${WORK_DIR}/tmp"
+    mkdir -p $WORK_TMP_DIR
   fi
   apptainer exec \
     --bind "${WORK_DIR}/af_input":/root/af_input \
@@ -246,7 +250,7 @@ if [[ -n "$SINGIMG" ]] ; then
     --bind "${WORK_TMP_DIR}":/root/tmp \
     --bind "${EXTRACTED_DATABASE_PATH}":/root/public_databases \
     --cwd /app/alphafold \
-    ${SINGIMG} \
+    ${SINGIMG_PATH} \
     TMPDIR=/root/tmp python run_alphafold.py \
     --db_dir=/root/public_databases \
     --run_data_pipeline=true \
@@ -255,7 +259,7 @@ if [[ -n "$SINGIMG" ]] ; then
     --model_dir=/root/models \
     --output_dir=/root/af_output \
     || exitcode=$?
-else # we must already be in the container
+else # implies that we are already in the container
   WORK_DIR_FULL_PATH=`realpath ${WORK_DIR}` # full path to working directory
   EXTRACTED_DATABASE_FULL_PATH=`realpath "${EXTRACTED_DATABASE_PATH}"`
   # setting TMPDIR so jackhmmer doesn't run out of space

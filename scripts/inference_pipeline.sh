@@ -4,17 +4,27 @@
 
 set -euo pipefail
 
+function printstd() { echo "$@"; }
+function printerr() { echo "ERROR: $@" 1>&2; }
+
+function printinfo() {
+  if [[ $VERBOSE_LEVEL -ge 1 ]]; then
+    printstd "INFO: $@"
+  fi
+}
+function printverbose() {
+  if [[ $VERBOSE_LEVEL -ge 2 ]]; then
+    printstd "DEBUG: $@"
+  fi
+}
 # STAGING_DIR is used to find the Singularity image (and databases)
 # It is not used if this script is run inside a container
 # Also, since this script does inference only, it doesn't need the databases
-# this varible doesn't need to be changed
-
-echo "$myjobdir"
-echo "$myjobdir"
-echo "$myjobdir"
-
-
 readonly STAGING_DIR=/staging/groups/glbrc_alphafold/af3
+
+# =======================
+# DEFAULT ARGUMENT VALUES
+# =======================
 
 # SINGIMG is used if we want to find a container. The script will 
 # first look in a local directory and then the staging directory for it.
@@ -40,19 +50,6 @@ VERBOSE_LEVEL=1 # 0 = silent, 1 = info, 2 = verbose
 WORK_DIR_EXT="random"
 
 
-function printstd() { echo "$@"; }
-function printerr() { echo "ERROR: $@" 1>&2; }
-
-function printinfo() {
-  if [[ $VERBOSE_LEVEL -ge 1 ]]; then
-    printstd "INFO: $@"
-  fi
-}
-function printverbose() {
-  if [[ $VERBOSE_LEVEL -ge 2 ]]; then
-    printstd "DEBUG: $@"
-  fi
-}
 
 function print_help() {
   cat << 'EOF'
@@ -230,7 +227,7 @@ if [[ -n "$SINGIMG" ]] ; then
   fi
   IMG_EXE_CMD="apptainer exec --nv ${SINGIMG_PATH}"
 else
-  printverbose "Not calling apptainer as we are inside the container"
+  printverbose "Not calling apptainer because no container was defined"
 fi
 
 printinfo "SINGIMG_PATH   : $SINGIMG_PATH"
@@ -290,7 +287,7 @@ printinfo "USER_SPECIFIED_AF3_OPTIONS: $USER_SPECIFIED_AF3_OPTIONS"
 
 exitcode=0
 
-if [[ -n "$SINGIMG" ]] ; then # use apptainer to run the container
+if [[ -n "$SINGIMG_PATH" ]] ; then # use apptainer to run the container
   apptainer exec \
      --bind "${WORK_DIR}/af_input":/root/af_input \
      --bind "${WORK_DIR}/af_output":/root/af_output \
@@ -309,7 +306,7 @@ if [[ -n "$SINGIMG" ]] ; then # use apptainer to run the container
      --output_dir=/root/af_output \
      $EXTRA_RUN_ALPHAFOLD_FLAGS $USER_SPECIFIED_AF3_OPTIONS \
     || exitcode=$?
-else # we must already be in the container
+else # implies that we are already in the container
   WORK_DIR_FULL_PATH=`realpath ${WORK_DIR}` # full path to working directory
   pushd /app/alphafold
   python run_alphafold.py \
