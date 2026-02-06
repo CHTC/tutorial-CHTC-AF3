@@ -2,6 +2,19 @@
 
 #set -x #for complete debugging
 
+function printstd() { echo "$@"; }            
+function printerr() { echo "ERROR: $@" 1>&2; }
+¶                                             
+function printinfo() {                        
+  if [[ $VERBOSE_LEVEL -ge 1 ]]; then         
+    printstd "INFO: $@"                       
+  fi                                          
+}                                             
+function printverbose() {                     
+  if [[ $VERBOSE_LEVEL -ge 2 ]]; then         
+    printstd "DEBUG: $@"                      
+  fi                                          
+}                                             
 # STAGING_DIR is used to find the Singularity image (and databases)
 # It can be left unused by specifing a container to run in
 # and using --extracted_database_path
@@ -30,20 +43,6 @@ WORK_DIR_EXT="random"
 # full path to extracted database
 # overrides $STAGING_DB_DIR and $DB_DIR_STUB
 EXTRACTED_DATABASE_PATH=""
-
-function printstd() { echo "$@"; }
-function printerr() { echo "ERROR: $@" 1>&2; }
-
-function printinfo() {
-  if [[ $VERBOSE_LEVEL -ge 1 ]]; then
-    printstd "INFO: $@"
-  fi
-}
-function printverbose() {
-  if [[ $VERBOSE_LEVEL -ge 2 ]]; then
-    printstd "DEBUG: $@"
-  fi
-}
 
 # Check for pre-staged Alphafold3 database
 if [ -f .machine.ad ]; then
