@@ -236,7 +236,7 @@ if [ -z "$EXTRACTED_DATABASE_PATH" ] ; then
   printverbose "Completed database installation"
 fi
 
-if [[ -n "$SINGIMG" ]] ; then
+if [[ -n "$SINGIMG_PATH" ]] ; then
   # TMPDIR is sometimes needed because jackhmmer sometimes runs out of 
   # space on the regular tmp drive if too many sequences match
   if [ -z "${WORK_TMP_DIR}" ] ; then
@@ -250,7 +250,7 @@ if [[ -n "$SINGIMG" ]] ; then
     --bind "${WORK_TMP_DIR}":/root/tmp \
     --bind "${EXTRACTED_DATABASE_PATH}":/root/public_databases \
     --cwd /app/alphafold \
-    ${SINGIMG} \
+    ${SINGIMG_PATH} \
     TMPDIR=/root/tmp python run_alphafold.py \
     --db_dir=/root/public_databases \
     --run_data_pipeline=true \

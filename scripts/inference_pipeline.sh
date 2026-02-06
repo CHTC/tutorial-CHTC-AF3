@@ -290,7 +290,7 @@ printinfo "USER_SPECIFIED_AF3_OPTIONS: $USER_SPECIFIED_AF3_OPTIONS"
 
 exitcode=0
 
-if [[ -n "$SINGIMG" ]] ; then # use apptainer to run the container
+if [[ -n "$SINGIMG_PATH" ]] ; then # use apptainer to run the container
   apptainer exec \
      --bind "${WORK_DIR}/af_input":/root/af_input \
      --bind "${WORK_DIR}/af_output":/root/af_output \
