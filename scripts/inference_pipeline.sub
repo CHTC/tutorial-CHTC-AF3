@@ -7,7 +7,7 @@ environment = "myjobdir=$(my_directory)"
 
 MODEL_WEIGHTS_PATH = /staging/<NetID>/af3/weights/af3.bin.zst
 
-log = ../logs/inference_pipeline.log
+log = ../logs/inference_pipeline.$(Cluster).log
 output = inference_pipeline_$(Cluster)_$(Process).out
 error  = inference_pipeline_$(Cluster)_$(Process).err
 

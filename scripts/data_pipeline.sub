@@ -3,7 +3,7 @@ container_image = file:///staging/groups/glbrc_alphafold/af3/alphafold3.minimal.
 
 executable = scripts/data_pipeline.sh
 
-log = ./logs/data_pipeline.log
+log = ./logs/data_pipeline.$(Cluster).log
 output = data_pipeline_$(Cluster)_$(Process).out
 error  = data_pipeline_$(Cluster)_$(Process).err
 
