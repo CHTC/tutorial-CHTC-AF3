@@ -126,6 +126,12 @@ def main():
         default="./list_of_af3_jobs.txt",
         help="Path to write job directory list (default: ./list_of_af3_jobs.txt)",
     )
+    parser.add_argument(
+        "--seed",
+        default=1,
+        type=int,
+        help="Seed to use for reproducible random number generation",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -156,7 +162,7 @@ def main():
             fold_json = {
                 "name": job_name,
                 "sequences": molecules,
-                "modelSeeds": [1],
+                "modelSeeds": [args.seed],
                 "dialect": "alphafold3",
                 "version": 1,
             }
