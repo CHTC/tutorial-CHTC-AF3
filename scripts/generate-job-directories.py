@@ -19,7 +19,7 @@ If multiple chains are desired for a molecule, use "|" to separate chain IDs in 
     e.g., "A|B|C" for chains A, B, and C
 
 Usage:
-    python make_af3_jobs.py --manifest manifest.csv --output_dir AF3_Jobs
+    python3 generate-job-directories.py --manifest manifest.csv --output_dir AF3_Jobs
 """
 
 import os
@@ -41,12 +41,7 @@ def build_molecule_block(molecule_type, chain_id, sequence, apply_mods=True):
     else:
         chains = chain_id.strip()  # single-chain mode
 
-    return {
-        molecule_type: {
-            "id": chains,
-            "sequence": sequence
-        }
-    }
+    return {molecule_type: {"id": chains, "sequence": sequence}}
 
 
 def parse_molecules(row_dict):
@@ -95,9 +90,11 @@ def parse_molecules(row_dict):
 
 # description = "Generate AF3 job directories for multi-molecule inputs.")
 
+
 def main():
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     description='''\
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="""\
         Generate AlphaFold3 job directories from a manifest CSV.
 
         Manifest structure:
@@ -118,10 +115,17 @@ def main():
 
         Usage:
             python make_af3_jobs.py --manifest manifest.csv --output_dir AF3_Jobs --jobs-list list_of_jobs.txt (optional)
-        ''')
+        """,
+    )
     parser.add_argument("--manifest", required=True, help="Path to manifest CSV")
-    parser.add_argument("--output_dir", required=True, help="Where to create job directories")
-    parser.add_argument("--jobs-list", default="./list_of_af3_jobs.txt", help="Path to write job directory list (default: ./list_of_af3_jobs.txt)")
+    parser.add_argument(
+        "--output_dir", required=True, help="Where to create job directories"
+    )
+    parser.add_argument(
+        "--jobs-list",
+        default="./list_of_af3_jobs.txt",
+        help="Path to write job directory list (default: ./list_of_af3_jobs.txt)",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -154,7 +158,7 @@ def main():
                 "sequences": molecules,
                 "modelSeeds": [1],
                 "dialect": "alphafold3",
-                "version": 1
+                "version": 1,
             }
 
             json_path = os.path.join(data_inputs, "fold_input.json")
