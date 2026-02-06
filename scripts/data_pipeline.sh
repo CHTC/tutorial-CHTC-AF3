@@ -84,12 +84,12 @@ while [[ $# -gt 0 ]]; do
       shift # past value
       ;;
     -v|--verbose)
-      VERBOSE=2
+      VERBOSE_LEVEL=2
       printinfo "Setting PRINT_SUMMARY and VERBOSE on"
       shift # past argument
       ;;
      -s|--silent)
-      VERBOSE=0
+      VERBOSE_LEVEL=0
       printinfo "Setting PRINT_SUMMARY and VERBOSE off" # this will not print
       shift # past argument
       ;;
