@@ -45,10 +45,6 @@ function printverbose() {
   fi
 }
 
-# full path to extracted database
-# overrides $STAGING_DB_DIR and $DB_DIR_STUB
-EXTRACTED_DATABASE_PATH=""
-
 # Check for pre-staged Alphafold3 database
 if [ -f .machine.ad ]; then
   if grep -q 'HasAlphafold3\s*=\s*true' .machine.ad; then
