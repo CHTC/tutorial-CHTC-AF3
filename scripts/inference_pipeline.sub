@@ -19,6 +19,9 @@ transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 
+# Currently required for the "file://" protocol
+requirements = (HasCHTCStaging == true)
+
 request_memory = 8GB
 # need space for the container (3GB) as well
 request_disk = 10GB
