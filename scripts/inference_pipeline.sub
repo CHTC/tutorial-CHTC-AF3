@@ -3,7 +3,7 @@ container_image = file:///staging/groups/glbrc_alphafold/af3/alphafold3.minimal.
 
 executable = inference_pipeline.sh
 
-environment = "myjobdir=$(directory)"
+environment = "myjobdir=$(my_directory)"
 
 MODEL_WEIGHTS_PATH = /staging/<NetID>/af3/weights/af3.bin.zst
 
@@ -11,7 +11,7 @@ log = ../logs/inference_pipeline.log
 output = inference_pipeline_$(Cluster)_$(Process).out
 error  = inference_pipeline_$(Cluster)_$(Process).err
 
-initialdir = $(directory)
+initialdir = $(my_directory)
 
 # transfer all files in the inference_inputs directory
 transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
@@ -40,4 +40,4 @@ gpus_minimum_memory = 0
 # arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process) --user-specified-alphafold-options "--buckets 5982"
 arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process)
 
-queue directory from list_of_af3_jobs.txt
+queue my_directory from list_of_af3_jobs.txt
