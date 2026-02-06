@@ -191,7 +191,7 @@ if [[ -n "$SINGIMG" ]] ; then
   fi
   IMG_EXE_CMD="apptainer exec ${SINGIMG_PATH}"
 else
-  printverbose "Not calling apptainer as we are inside the container"
+  printverbose "Not calling apptainer because no container was defined"
 fi
 
 printinfo "SINGIMG_PATH   : $SINGIMG_PATH"
