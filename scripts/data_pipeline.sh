@@ -189,7 +189,7 @@ if [[ -n "$SINGIMG" ]] ; then
       exit 1
     fi
   fi
-  IMG_EXE_CMD="apptainer exec --nv ${SINGIMG_PATH}"
+  IMG_EXE_CMD="apptainer exec ${SINGIMG_PATH}"
 else
   printverbose "Not calling apptainer as we are inside the container"
 fi
