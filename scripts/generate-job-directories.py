@@ -41,7 +41,7 @@ def build_molecule_block(molecule_type, chain_id, sequence, apply_mods=True):
     else:
         chains = chain_id.strip()  # single-chain mode
 
-    return {molecule_type: {"id": chains, "sequence": sequence}}
+    return {molecule_type.strip(): {"id": chains, "sequence": sequence}}
 
 
 def parse_molecules(row_dict):
@@ -88,9 +88,6 @@ def parse_molecules(row_dict):
     return molecules
 
 
-# description = "Generate AF3 job directories for multi-molecule inputs.")
-
-
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -114,7 +111,7 @@ def main():
             e.g., "A|B|C" for chains A, B, and C
 
         Usage:
-            python make_af3_jobs.py --manifest manifest.csv --output_dir AF3_Jobs --jobs-list list_of_jobs.txt (optional)
+            python generate-job-directories.py [options] --manifest MANIFEST --output_dir OUTPUT_DIR
         """,
     )
     parser.add_argument("--manifest", required=True, help="Path to manifest CSV")
