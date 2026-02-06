@@ -20,6 +20,12 @@ function printverbose() {
 # and using --extracted_database_path
 readonly STAGING_DIR=/staging/groups/glbrc_alphafold/af3
 
+# =======================
+# DEFAULT ARGUMENT VALUES
+# =======================
+
+# DB_DIR_STUB selects which database to use, either the full regular
+# database ("db") or the small test database ("db_small")
 DB_DIR_STUB=db
 
 # SINGIMG is used if we want to find a container. The script will 
@@ -112,7 +118,7 @@ while [[ $# -gt 0 ]]; do
       ;;
      -d|--extracted_database_path)
       EXTRACTED_DATABASE_PATH=`realpath "$2"`
-      printinfo "Setting EXTRACTED_DATABASE_PATH"
+      printinfo "Setting EXTRACTED_DATABASE_PATH: $EXTRACTED_DATABASE_PATH"
       shift # past argument
       shift # past value
       ;;
@@ -218,12 +224,14 @@ if [ -z "$EXTRACTED_DATABASE_PATH" ] ; then
               pdb_seqres_2022_09_28.fasta \
               rnacentral_active_seq_id_90_cov_80_linclust.fasta \
               nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta \
-              rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta ; do
+              rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta
+  do
     printinfo "Start decompressing: '${NAME}'"
     cat "${STAGING_DB_DIR}/${NAME}.zst" | \
         ${IMGEXEC} zstd --decompress > "${EXTRACTED_DATABASE_PATH}/${NAME}" &
   done
-  
+
+  printverbose "Waiting for decompressing to complete"
   wait # for all decompression to finish
   printverbose "Completed database installation"
 fi
@@ -233,6 +241,7 @@ if [[ -n "$SINGIMG" ]] ; then
   # space on the regular tmp drive if too many sequences match
   if [ -z "${WORK_TMP_DIR}" ] ; then
     WORK_TMP_DIR="${WORK_DIR}/tmp"
+    mkdir -p $WORK_TMP_DIR
   fi
   apptainer exec \
     --bind "${WORK_DIR}/af_input":/root/af_input \
@@ -250,7 +259,7 @@ if [[ -n "$SINGIMG" ]] ; then
     --model_dir=/root/models \
     --output_dir=/root/af_output \
     || exitcode=$?
-else # we must already be in the container
+else # implies that we are already in the container
   WORK_DIR_FULL_PATH=`realpath ${WORK_DIR}` # full path to working directory
   EXTRACTED_DATABASE_FULL_PATH=`realpath "${EXTRACTED_DATABASE_PATH}"`
   # setting TMPDIR so jackhmmer doesn't run out of space
