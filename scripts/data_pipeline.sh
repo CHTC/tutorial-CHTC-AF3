@@ -1,10 +1,13 @@
 #!/bin/bash
 
 #set -x #for complete debugging
+set -euo pipefail
+
+exitcode=0 # initialize exit code to 0, will be updated if any command fails
 
 function printstd() { echo "$@"; }            
 function printerr() { echo "ERROR: $@" 1>&2; }
-¶                                             
+
 function printinfo() {                        
   if [[ $VERBOSE_LEVEL -ge 1 ]]; then         
     printstd "INFO: $@"                       
@@ -18,7 +21,7 @@ function printverbose() {
 # STAGING_DIR is used to find the Singularity image (and databases)
 # It can be left unused by specifing a container to run in
 # and using --extracted_database_path
-readonly STAGING_DIR=/staging/groups/glbrc_alphafold/af3
+readonly STAGING_DIR=/staging/groups/chtc_staff/containers
 
 # =======================
 # DEFAULT ARGUMENT VALUES
@@ -63,7 +66,7 @@ if [ -f .machine.ad ]; then
     printinfo "Host does not advertise HasAlphafold3=true — will copy and extract databases locally."
   fi
 else
-  printinfo "No /.machine.ad found — cannot verify HasAlphafold3, proceeding with extraction."
+  printinfo "No .machine.ad found — cannot verify HasAlphafold3, proceeding with copy + extraction."
 fi
 
 ARGS="$@"
@@ -106,11 +109,17 @@ while [[ $# -gt 0 ]]; do
       ;;
      -r|--random_sleep_minutes)
       RANDOM_SLEEP_TIME="$2"
+
+      [[ "$RANDOM_SLEEP_TIME" =~ ^[1-9][0-9]*$ ]] || {
+        printerr "random_sleep_minutes must be positive integer"
+        exit 2
+      }
+
       SLEEP_TIME=$(( RANDOM % RANDOM_SLEEP_TIME + 1 ))
       printinfo "Sleeping for   : ${SLEEP_TIME} minutes"
       sleep "${SLEEP_TIME}m"
-      shift # past argument
-      shift # past value
+      shift
+      shift
       ;;
      --smalldb)
       DB_DIR_STUB=db_small
@@ -153,7 +162,6 @@ pushd "${WORK_DIR}" > /dev/null
 mkdir -p af_input af_output models public_databases tmp
 popd
 
-
 readonly WORK_INPUT_DIR="${WORK_DIR}/af_input"
 # prepare input directory
 if compgen -G "*.json"  > /dev/null; then
@@ -174,12 +182,12 @@ if [[ -n "$SINGIMG" ]] ; then
     if [ -f "$SINGIMG" ]; then 
       printverbose "Copying container from local directory"
       cp "${SINGIMG}" "${WORK_DIR}"/
-      SINGIMG_PATH="${WORK_DIR}/${SINGIMG}"
+      SINGIMG_PATH="${WORK_DIR}/$(basename "${SINGIMG}")"
     else # container is not in the local directory, check if it is in staging
       if [ -f ${STAGING_DIR}/${SINGIMG} ]; then
         printverbose "Copying container from staging directory"
-        cp "${STAGING_DIR}/${SINGIMG}" "${WORK_DIR}"/ 
-        SINGIMG_PATH="${WORK_DIR}/${SINGIMG}"
+        cp "${STAGING_DIR}/${SINGIMG}" "${WORK_DIR}"/
+        SINGIMG_PATH="${WORK_DIR}/$(basename "${SINGIMG}")"
       else #not in staging
         printerr "Cannot find container to copy : $SINGIMG"
         exit 1
@@ -214,7 +222,7 @@ if [ -z "$EXTRACTED_DATABASE_PATH" ] ; then
   printverbose "Start decompressing : pdb_2022_09_28_mmcif_files"
   printinfo "STAGING_DB_DIR : $STAGING_DB_DIR"
   cat "${STAGING_DB_DIR}"/pdb_2022_09_28_mmcif_files.tar.zst | \
-          ${IMGEXEC} tar --no-same-owner --no-same-permissions \
+          ${IMG_EXE_CMD} tar --no-same-owner --no-same-permissions \
           --use-compress-program=zstd -xf - \
           --directory="${EXTRACTED_DATABASE_PATH}/" &
   
@@ -228,7 +236,7 @@ if [ -z "$EXTRACTED_DATABASE_PATH" ] ; then
   do
     printinfo "Start decompressing: '${NAME}'"
     cat "${STAGING_DB_DIR}/${NAME}.zst" | \
-        ${IMGEXEC} zstd --decompress > "${EXTRACTED_DATABASE_PATH}/${NAME}" &
+        ${IMG_EXE_CMD} zstd --decompress > "${EXTRACTED_DATABASE_PATH}/${NAME}" &
   done
 
   printverbose "Waiting for decompressing to complete"
@@ -299,6 +307,5 @@ done
 # clean up
 printverbose "Cleaning up working directory"
 rm -rf "${WORK_DIR}"
-rm -rf .bash_history .bashrc .lesshst .viminfo
 printverbose "Done"
 

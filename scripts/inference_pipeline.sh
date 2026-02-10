@@ -163,6 +163,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# MODEL_PARAM_FILE must be supplied
+if [[ -z "${MODEL_PARAM_FILE:-}" ]]; then
+  printerr "a model parameter file, such as af3.bin.zst, must be supplied for running AlphaFold3. If you do not a have copy of the model parameter file, can request one from https://github.com/google-deepmind/alphafold3/tree/main?tab=readme-ov-file#obtaining-model-parameters"
+  exit 1
+fi
+
 printinfo "Script         : $0"
 printinfo "Running on     : `whoami`@`hostname`"
 printinfo "Arguments      : $ARGS"
@@ -202,7 +208,7 @@ if [[ -n "$SINGIMG" ]] ; then
   printverbose "Calling apptainer externally : ${SINGIMG}"
   if [[ "$COPY_BINARIES" -ne 0 ]] ; then
     printverbose "Copying container to WORK_DIR"
-    if [ -f "$SINGIMG" ]; then 
+    if [ -f "$SINGIMG" ]; then
       printverbose "Copying container from local directory"
       cp "${SINGIMG}" "${WORK_DIR}"/
       SINGIMG_PATH="${WORK_DIR}/${SINGIMG}"
@@ -232,9 +238,6 @@ fi
 
 printinfo "SINGIMG_PATH   : $SINGIMG_PATH"
 printinfo "IMG_EXE_CMD    : $IMG_EXE_CMD"
-
-# MODEL_PARAM_FILE must be set
-: "${MODEL_PARAM_FILE:?MODEL_PARAM_FILE must be set via --model_param_file}"
 
 MODEL_PARAM_DIR=`realpath ${WORK_DIR}/models`
 if [[ ${MODEL_PARAM_FILE} == *.zst ]]; then
@@ -283,7 +286,7 @@ fi
 
 printinfo "EXTRA_RUN_ALPHAFOLD_FLAGS: $EXTRA_RUN_ALPHAFOLD_FLAGS"
 printinfo "EXTRA_APPTAINER_ENV      : $EXTRA_APPTAINER_ENV"
-printinfo "USER_SPECIFIED_AF3_OPTIONS: $USER_SPECIFIED_AF3_OPTIONS"
+printinfo "USER_SPECIFIED_AF3_OPTIONS: ${USER_SPECIFIED_AF3_OPTIONS:-}"
 
 exitcode=0
 
@@ -304,7 +307,7 @@ if [[ -n "$SINGIMG_PATH" ]] ; then # use apptainer to run the container
      --input_dir=/root/af_input \
      --model_dir=/root/models \
      --output_dir=/root/af_output \
-     $EXTRA_RUN_ALPHAFOLD_FLAGS $USER_SPECIFIED_AF3_OPTIONS \
+     $EXTRA_RUN_ALPHAFOLD_FLAGS ${USER_SPECIFIED_AF3_OPTIONS:-} \
     || exitcode=$?
 else # implies that we are already in the container
   WORK_DIR_FULL_PATH=`realpath ${WORK_DIR}` # full path to working directory
