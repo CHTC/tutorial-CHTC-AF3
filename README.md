@@ -102,7 +102,7 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
 3. Create a directory in your `/staging/<netid>/` path titled `tutorial-CHTC-AF3`.
 
     ```bash
-    mkdir /staging/<netid>/tutorial-CHTC-AF3/
+    mkdir -p /staging/<netid>/tutorial-CHTC-AF3/
     ```
   
 4. Upload your AlphaFold3 Model Weights (`af3.bin.zst`) to `/staging/<netID>/tutorial-CHTC-AF3/`
@@ -115,10 +115,10 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
 
 A set of sample sequences has been included with this repository under `Toy_Dataset/input.csv`. You can use this CSV "manifest" file with the `scripts/generate_job_directories.py` helper script, as described in [Setting Up AlphaFold3 Input JSONs and Job Directories](#setting-up-alphafold3-input-jsons-and-job-directories). The sample data includes four different sequences types to illustrate different AlphaFold use cases:
 
-1) Single-protein: the [_Sabethes Cyaneus_]() Piwi protein
-2) Protein-RNA:  the [_Aedes aegypti_]() Piwi protein complexed with a piwi-interacting RNA. 
-3) Protein-RNA-RNA: [_Aedes albopictus_]() Piwi protein complexed with a piwi-interacting RNA and a target RNA. 
-4) Protein complex: A tetrameric complex of the [_Aedes aegypti_]() Actin protein. 
+1) Single-protein: the [_Sabethes Cyaneus_](https://en.wikipedia.org/wiki/Sabethes_cyaneus) Piwi protein
+2) Protein-RNA:  the [_Aedes aegypti_](https://en.wikipedia.org/wiki/Aedes_aegypti) Piwi protein complexed with a piwi-interacting RNA. 
+3) Protein-RNA-RNA: [_Aedes albopictus_](https://en.wikipedia.org/wiki/Aedes_albopictus) Piwi protein complexed with a piwi-interacting RNA and a target RNA. 
+4) Protein complex: A tetrameric complex of the [_Aedes aegypti_](https://en.wikipedia.org/wiki/Aedes_aegypti) Actin protein. 
 
 ## Understanding the AlphaFold3 Workflow
 
