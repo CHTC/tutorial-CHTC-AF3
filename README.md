@@ -320,7 +320,8 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
 
     ```bash
     # CHTC maintained container for AlphaFold3 as of December 2025
-    container_image = file:///staging/groups/glbrc_alphafold/af3/alphafold3.minimal.22Jan2025.sif
+    # Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
+    container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
     
     executable = scripts/data_pipeline.sh
     
@@ -328,12 +329,12 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
     output = data_pipeline_$(Cluster)_$(Process).out
     error  = data_pipeline_$(Cluster)_$(Process).err
     
-    initialdir = $(directory)
+    initialdir = $(my_directory)
     transfer_input_files = data_inputs/
-   
+    
     # transfer output files back to the submit node
-    transfer_output_files = $(directory).data_pipeline.tar.gz
-    transfer_output_remaps = "$(directory).data_pipeline.tar.gz=inference_inputs/$(directory).data_pipeline.tar.gz"
+    transfer_output_files = $(my_directory).data_pipeline.tar.gz
+    transfer_output_remaps = "$(my_directory).data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
     
     should_transfer_files = YES
     when_to_transfer_output = ON_EXIT
@@ -353,10 +354,10 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
       # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
       request_disk = 700000 - ( (TARGET.HasAlphafold3?: 1) * 650000)
       request_cpus = 8
-      arguments = --work_dir_ext $(Cluster)_$(Proc) 
+      arguments = --work_dir_ext $(Cluster)_$(Proc)
     endif
     
-    queue directory from list_of_af3_jobs.txt
+    queue my_directory from list_of_af3_jobs.txt
    ```
 
 This submit file will read the contents of `list_of_af3_jobs.txt`, iterate through each line, and assign the value of each line to the variable `$(directory)`. This allows you to programmatically submit _N_ jobs, where _N_ equals the number of AlphaFold3 job directories you previously created. Each job processes one AlphaFold3 job directory and uses the CHTC-maintained AlphaFold3 container image, which is transferred to the Execution Point (EP) by HTCondor.
@@ -409,21 +410,23 @@ Once the data-pipeline jobs have finished generating alignments and features, th
 
     ```bash
     # CHTC maintained container for AlphaFold3 as of December 2025
-    container_image = file:///staging/groups/glbrc_alphafold/af3/alphafold3.minimal.22Jan2025.sif
+    # Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
+    container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
     
     executable = inference_pipeline.sh
     
-    environment = "myjobdir=$(directory)"
+    environment = "myjobdir=$(my_directory)"
     
-    MODEL_WEIGHTS_PATH = /staging/damorales4/af3/weights/af3.bin.zst
+    MODEL_WEIGHTS_PATH = /staging/<NetID>/af3/weights/af3.bin.zst
     
-    log = ../logs/inference_pipeline.log
+    log = ../logs/inference_pipeline.$(Cluster).log
     output = inference_pipeline_$(Cluster)_$(Process).out
     error  = inference_pipeline_$(Cluster)_$(Process).err
     
-    initialdir = $(directory)
+    initialdir = $(my_directory)
+    
     # transfer all files in the inference_inputs directory
-    transfer_input_files = inference_inputs/, $(MODEL_WEIGHTS_PATH)
+    transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
     
     should_transfer_files = YES
     when_to_transfer_output = ON_EXIT
@@ -434,21 +437,20 @@ Once the data-pipeline jobs have finished generating alignments and features, th
     request_cpus = 4
     request_gpus = 1
     
-    # we should be able to run short jobs on CUDA_CAPABILITY=7.x but need
-    # other environment variables and options to be set. This is done automatically
-    # in inference_pipeline.sh
+    # Use the CHTC recommended AF3 memory requirement based on the number of tokens
     gpus_minimum_memory = 0
     
     # short jobs 4-6 hours so it is okay to use is_resumable
     +GPUJobLength = "short"
     +WantGPULab = true
     +is_resumable = true
+    +want_ospool = true
     
     # Use --user-specified-alphafold-options to pass any extra options to AlphaFold3, such as
     # arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process) --user-specified-alphafold-options "--buckets 5982"
     arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process)
     
-    queue directory from list_of_af3_jobs.txt   
+    queue my_directory from list_of_af3_jobs.txt 
    ```
 
 This submit file will read the contents of `list_of_af3_jobs.txt`, iterate through each line, and assign the value of each line to the variable `$(directory)`. This allows you to programmatically submit _N_ jobs, where _N_ equals the number of AlphaFold3 job directories you previously created. Each job processes one AlphaFold3 job directory and uses the CHTC-maintained AlphaFold3 container image, which is transferred to the Execution Point (EP) by HTCondor.
