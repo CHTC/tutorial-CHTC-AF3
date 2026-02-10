@@ -95,7 +95,7 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
 * Clone the repository:
 
   ```bash
-  git clone https://github.com/dmora127/tutorial-CHTC-AF3.git
+  git clone https://github.com/CHTC/tutorial-CHTC-AF3.git
   cd tutorial-CHTC-AF3/
   ```
 
