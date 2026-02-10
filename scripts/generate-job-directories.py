@@ -119,22 +119,23 @@ def main():
         "--output_dir", required=True, help="Where to create job directories"
     )
     parser.add_argument(
-        "--jobs-list",
+        "--jobs_list",
         default="./list_of_af3_jobs.txt",
         help="Path to write job directory list (default: ./list_of_af3_jobs.txt)",
     )
     parser.add_argument(
         "--seed",
-        default=1,
+        nargs="+",
+        default=[1],
         type=int,
-        help="Seed to use for reproducible random number generation",
+        help="Seed(s) to use for reproducible runs. Can specify multiple seeds for multiple runs per job (default: 1). Accepts space-separated values (e.g. --seed 1 2 3)",
     )
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
 
     jobs_list_path = args.jobs_list
-    jobs_list_fh = open(jobs_list_path, "w")
+    jobs_list_file = open(jobs_list_path, "w")
 
     with open(args.manifest, newline="") as csvfile:
         reader = csv.DictReader(csvfile)
@@ -159,7 +160,7 @@ def main():
             fold_json = {
                 "name": job_name,
                 "sequences": molecules,
-                "modelSeeds": [args.seed],
+                "modelSeeds": args.seed,
                 "dialect": "alphafold3",
                 "version": 1,
             }
@@ -169,10 +170,11 @@ def main():
                 json.dump(fold_json, jf, indent=2)
 
             print(f"[+] Created {job_dir_name} with {len(molecules)} molecules.")
-            jobs_list_fh.write(f"{job_dir_name}\n")
+            jobs_list_file.write(f"{job_dir_name}\n")
 
-    jobs_list_fh.close()
+    jobs_list_file.close()
     print("\nAll multi-molecule AF3 job directories generated.")
+    print("\nThe list of job directories has been written to:", jobs_list_path)
 
 
 if __name__ == "__main__":
