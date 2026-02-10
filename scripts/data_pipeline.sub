@@ -8,7 +8,7 @@ log = ./logs/data_pipeline.log
 output = data_pipeline_$(Cluster)_$(Process).out
 error  = data_pipeline_$(Cluster)_$(Process).err
 
-initialdir = $(my_directory)
+initialdir = AF3_Jobs/$(my_directory)
 transfer_input_files = data_inputs/
 
 # transfer output files back to the submit node
