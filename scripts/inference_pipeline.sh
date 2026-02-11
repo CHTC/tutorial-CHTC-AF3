@@ -49,7 +49,10 @@ VERBOSE_LEVEL=1 # 0 = silent, 1 = info, 2 = verbose
 # will not overwrite each other
 WORK_DIR_EXT="random"
 
-
+USER_SPECIFIED_AF3_OPTIONS=""
+USE_UNIFIED_MEMORY=""
+MEM_FRACTION=""
+MODEL_PARAM_FILE=""
 
 function print_help() {
   cat << 'EOF'
@@ -319,7 +322,7 @@ else # implies that we are already in the container
        --run_inference=true \
        --input_dir="${WORK_DIR_FULL_PATH}/af_input" \
        --output_dir="${WORK_DIR_FULL_PATH}/af_output" \
-       $EXTRA_RUN_ALPHAFOLD_FLAGS $USER_SPECIFIED_AF3_OPTIONS \
+       $EXTRA_RUN_ALPHAFOLD_FLAGS ${USER_SPECIFIED_AF3_OPTIONS:-} \
       || exitcode=$?
   popd # back to execution directory
 fi
