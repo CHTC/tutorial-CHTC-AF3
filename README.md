@@ -333,8 +333,8 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
     transfer_input_files = data_inputs/
     
     # transfer output files back to the submit node
-    transfer_output_files = $(my_directory).data_pipeline.tar.gz
-    transfer_output_remaps = "$(my_directory).data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
+   transfer_output_files = data_pipeline.tar.gz
+    transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
     
     should_transfer_files = YES
     when_to_transfer_output = ON_EXIT
