@@ -6,7 +6,7 @@ executable = inference_pipeline.sh
 
 environment = "myjobdir=$(my_directory)"
 
-MODEL_WEIGHTS_PATH = /staging/<NetID>/af3/weights/af3.bin.zst
+MODEL_WEIGHTS_PATH = /staging/<NetID>/tutorial-CHTC-AF3/af3.bin.zst
 
 log = ./logs/inference_pipeline.log
 output = inference_pipeline_$(Cluster)_$(Process).out
