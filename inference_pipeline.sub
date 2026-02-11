@@ -2,17 +2,17 @@
 # Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
 container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
 
-executable = inference_pipeline.sh
+executable = scripts/inference_pipeline.sh
 
 environment = "myjobdir=$(my_directory)"
 
-MODEL_WEIGHTS_PATH = /staging/<NetID>/af3/weights/af3.bin.zst
+MODEL_WEIGHTS_PATH = /staging/<NetID>/tutorial-CHTC-AF3/af3.bin.zst
 
-log = ../logs/inference_pipeline.$(Cluster).log
+log = ./logs/inference_pipeline.log
 output = inference_pipeline_$(Cluster)_$(Process).out
 error  = inference_pipeline_$(Cluster)_$(Process).err
 
-initialdir = $(my_directory)
+initialdir = AF3_Jobs/$(my_directory)
 
 # transfer all files in the inference_inputs directory
 transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
@@ -27,7 +27,7 @@ request_cpus = 4
 request_gpus = 1
 
 # Use the CHTC recommended AF3 memory requirement based on the number of tokens
-gpus_minimum_memory = 0
+gpus_minimum_memory = 15 GB
 
 # short jobs 4-6 hours so it is okay to use is_resumable
 +GPUJobLength = "short"
