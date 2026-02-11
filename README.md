@@ -246,6 +246,23 @@ This directory structure will be used for each sequence prediction workflow. Whi
         └── inference_inputs
    ```
 
+3. View the contents of `Toy_Dataset/input.csv` to understand the format of the manifest file:
+
+    ```bash
+    column -s, -t Toy_Dataset/input.csv | less -S
+    ```
+
+    The CSV should look like this:
+
+    ```bash
+    job_name                            mol1_type  mol1_chain  mol1_seq                                                                                                   >
+    XP_053696736.1_Sabethes_cyaneus     protein    A           MADRHSQGRARARGYAVGSSSHESREGRGQVPVRGSGVGIPGQGPRPAWGQPGGGEGRASVHRDSSAGRHGSSSGGNGNGNGAGTSASGGAGTSRGAMRGRRTIGDT>
+    XP_001663870.2_Aedes_aegypti        protein    A           MADRQPVRRARARGYTAVSVSHESRQGRGQPPVRGSGVAVSGPRPSFQHPGAEGRAVTYHEGSAGRGAVSASTSGGGNGNGNGGDGNGNGAAAVASRGAMRGRRPVG>
+    XP_029709661.2_Aedes_albopictus     protein    A           MSDRQSQGRARARGYTAVNLSHEAREGRGQAPVRGSGVGVSGPRPTFQHPGAEGRAMTHRDASAGRGASSSTSGNGNGNGNGAAAAGPSRGAMRGRRGVADTLRTRA>
+    XP_001659963.1_Aedes_aegypti_Actin  protein    A|B|C|D     MCDDDVAALVVDNGSGMCKAGFAGDDAPRAVFPSIVGRPRHQGVMVGMGQKDSYVGDEAQSKRGILTLKYPIEHGIITNWDDMEKIWHHTFYNELRVAPEEHPVLLT>
+    (END)
+   ```
+
 Our data manifest file (`input.csv`) comes with four scenarios already. If you want to create your own file of inputs, read more below. 
 
 <details><summary>Click to expand: Building Your Own Manifest File</summary>
