@@ -33,7 +33,7 @@ gpus_minimum_memory = 15 GB
 +GPUJobLength = "short"
 +WantGPULab = true
 +is_resumable = true
-+want_ospool = true
+want_ospool = true
 
 # Use --user-specified-alphafold-options to pass any extra options to AlphaFold3, such as
 # arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process) --user-specified-alphafold-options "--buckets 5982"
