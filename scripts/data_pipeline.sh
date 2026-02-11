@@ -299,13 +299,11 @@ printverbose "Finished running Alphafold3 data pipeline. Packing up output dir"
 shopt -s nullglob # we do not want an empty match below
 for output_dir in "${WORK_DIR}/af_output"/*/ ;
 do
-  output_name_base="$(basename ${output_dir})"
-  printinfo "Compressing : $output_name_base"
-  tar zcf "${output_name_base}".data_pipeline.tar.gz -C "${output_dir}" .
+  printinfo "Compressing : to data_pipeline.tar.gz"
+  tar zcf data_pipeline.tar.gz -C "${output_dir}" .
 done
 
 # clean up
 printverbose "Cleaning up working directory"
 rm -rf "${WORK_DIR}"
 printverbose "Done"
-

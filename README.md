@@ -95,14 +95,14 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
 * Clone the repository:
 
   ```bash
-  git clone https://github.com/dmora127/tutorial-CHTC-AF3.git
+  git clone https://github.com/CHTC/tutorial-CHTC-AF3.git
   cd tutorial-CHTC-AF3/
   ```
 
 3. Create a directory in your `/staging/<netid>/` path titled `tutorial-CHTC-AF3`.
 
     ```bash
-    mkdir /staging/<netid>/tutorial-CHTC-AF3/
+    mkdir -p /staging/<netid>/tutorial-CHTC-AF3/
     ```
   
 4. Upload your AlphaFold3 Model Weights (`af3.bin.zst`) to `/staging/<netID>/tutorial-CHTC-AF3/`
@@ -115,10 +115,10 @@ Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline ex
 
 A set of sample sequences has been included with this repository under `Toy_Dataset/input.csv`. You can use this CSV "manifest" file with the `scripts/generate_job_directories.py` helper script, as described in [Setting Up AlphaFold3 Input JSONs and Job Directories](#setting-up-alphafold3-input-jsons-and-job-directories). The sample data includes four different sequences types to illustrate different AlphaFold use cases:
 
-1) Single-protein: the [_Sabethes Cyaneus_]() Piwi protein
-2) Protein-RNA:  the [_Aedes aegypti_]() Piwi protein complexed with a piwi-interacting RNA. 
-3) Protein-RNA-RNA: [_Aedes albopictus_]() Piwi protein complexed with a piwi-interacting RNA and a target RNA. 
-4) Protein complex: A tetrameric complex of the [_Aedes aegypti_]() Actin protein. 
+1) Single-protein: the [_Sabethes Cyaneus_](https://en.wikipedia.org/wiki/Sabethes_cyaneus) Piwi protein
+2) Protein-RNA:  the [_Aedes aegypti_](https://en.wikipedia.org/wiki/Aedes_aegypti) Piwi protein complexed with a piwi-interacting RNA. 
+3) Protein-RNA-RNA: [_Aedes albopictus_](https://en.wikipedia.org/wiki/Aedes_albopictus) Piwi protein complexed with a piwi-interacting RNA and a target RNA. 
+4) Protein complex: A tetrameric complex of the [_Aedes aegypti_](https://en.wikipedia.org/wiki/Aedes_aegypti) Actin protein. 
 
 ## Understanding the AlphaFold3 Workflow
 
@@ -333,8 +333,8 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
     transfer_input_files = data_inputs/
     
     # transfer output files back to the submit node
-    transfer_output_files = $(my_directory).data_pipeline.tar.gz
-    transfer_output_remaps = "$(my_directory).data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
+   transfer_output_files = data_pipeline.tar.gz
+    transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
     
     should_transfer_files = YES
     when_to_transfer_output = ON_EXIT
