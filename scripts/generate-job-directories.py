@@ -184,6 +184,14 @@ def main():
             estimated_vram_gb = max(0, 0.01796 * total_tokens - 4.130)
 
             print(f"[+] Created {job_dir_name} with {len(molecules)} molecules, {total_tokens} tokens, ~{estimated_vram_gb:.2f} GB vRAM estimated.")
+            if estimated_vram_gb > 130:
+                print(
+                    "n\⚠️ Your minimum vRAM estimated is very high (above 130 GB) for this job. "
+                    "This may cause out-of-memory failures if you attempt to run it using the standard AlphaFold3 instance. "
+                    "We can help prevent these! Please contact your CHTC Research Computing Facilitators at chtc@cs.wisc.edu "
+                    "for more information about how to run ultra-large complexes on the system."
+                )
+
             jobs_list_file.write(f"{job_dir_name}\n")
 
     jobs_list_file.close()
