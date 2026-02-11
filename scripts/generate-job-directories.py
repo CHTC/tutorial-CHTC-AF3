@@ -169,7 +169,19 @@ def main():
             with open(json_path, "w") as jf:
                 json.dump(fold_json, jf, indent=2)
 
-            print(f"[+] Created {job_dir_name} with {len(molecules)} molecules.")
+            # Compute total tokens (sequence length across all chains)
+            total_tokens = 0
+            for mol in molecules:
+                mol_type = list(mol.keys())[0]
+                seq = mol[mol_type]["sequence"]
+                chains = mol[mol_type]["id"]
+
+                if isinstance(chains, list):
+                    total_tokens += len(seq) * len(chains)
+                else:
+                    total_tokens += len(seq)
+
+            print(f"[+] Created {job_dir_name} with {len(molecules)} molecules and {total_tokens} tokens.")
             jobs_list_file.write(f"{job_dir_name}\n")
 
     jobs_list_file.close()
