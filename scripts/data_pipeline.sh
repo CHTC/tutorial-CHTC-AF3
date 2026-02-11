@@ -307,4 +307,3 @@ done
 printverbose "Cleaning up working directory"
 rm -rf "${WORK_DIR}"
 printverbose "Done"
-
