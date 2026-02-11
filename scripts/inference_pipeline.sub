@@ -12,7 +12,7 @@ log = ./logs/inference_pipeline.log
 output = inference_pipeline_$(Cluster)_$(Process).out
 error  = inference_pipeline_$(Cluster)_$(Process).err
 
-initialdir = $(my_directory)
+initialdir = AF3_Jobs/$(my_directory)
 
 # transfer all files in the inference_inputs directory
 transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
