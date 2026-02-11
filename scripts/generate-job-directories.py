@@ -181,7 +181,9 @@ def main():
                 else:
                     total_tokens += len(seq)
 
-            print(f"[+] Created {job_dir_name} with {len(molecules)} molecules and {total_tokens} tokens.")
+            estimated_vram_gb = max(0, 0.01796 * total_tokens - 4.130)
+
+            print(f"[+] Created {job_dir_name} with {len(molecules)} molecules, {total_tokens} tokens, ~{estimated_vram_gb:.2f} GB vRAM estimated.")
             jobs_list_file.write(f"{job_dir_name}\n")
 
     jobs_list_file.close()
