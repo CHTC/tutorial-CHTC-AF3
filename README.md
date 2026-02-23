@@ -346,11 +346,11 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
     output = data_pipeline_$(Cluster)_$(Process).out
     error  = data_pipeline_$(Cluster)_$(Process).err
     
-    initialdir = $(my_directory)
+    initialdir = AF3_Jobs/$(my_directory)
     transfer_input_files = data_inputs/
     
     # transfer output files back to the submit node
-   transfer_output_files = data_pipeline.tar.gz
+    transfer_output_files = data_pipeline.tar.gz
     transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
     
     should_transfer_files = YES
@@ -369,7 +369,7 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
       # full requirements
       request_memory = 8GB
       # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
-      request_disk = 700000 - ( (TARGET.HasAlphafold3?: 1) * 650000)
+      request_disk = 700000000 - ( (TARGET.HasAlphafold3?: 1) * 650000000)
       request_cpus = 8
       arguments = --work_dir_ext $(Cluster)_$(Proc)
     endif
@@ -434,7 +434,7 @@ Once the data-pipeline jobs have finished generating alignments and features, th
     
     environment = "myjobdir=$(my_directory)"
     
-    MODEL_WEIGHTS_PATH = /staging/<NetID>/af3/weights/af3.bin.zst
+    MODEL_WEIGHTS_PATH = /staging/<netID>/tutorial-CHTC-AF3/af3.bin.zst
     
     log = ../logs/inference_pipeline.$(Cluster).log
     output = inference_pipeline_$(Cluster)_$(Process).out
@@ -469,6 +469,9 @@ Once the data-pipeline jobs have finished generating alignments and features, th
     
     queue my_directory from list_of_af3_jobs.txt 
    ```
+
+    > [!IMPORTANT]  
+    > Make sure to update the `MODEL_WEIGHTS_PATH` variable to point to the location of your `af3.bin.zst` model weights file in your CHTC staging directory. This path should be the same as where you uploaded your model weights in step 4 of the [Clone the Tutorial Repository](#clone-the-tutorial-repository) section. For example, if your CHTC netID is `bbdager`, and you uploaded your model weights to `/staging/bbdager/tutorial-CHTC-AF3/af3.bin.zst`, then you should set `MODEL_WEIGHTS_PATH = /staging/bbdager/tutorial-CHTC-AF3/af3.bin.zst` in your submit file.
 
 This submit file will read the contents of `list_of_af3_jobs.txt`, iterate through each line, and assign the value of each line to the variable `$(directory)`. This allows you to programmatically submit _N_ jobs, where _N_ equals the number of AlphaFold3 job directories you previously created. Each job processes one AlphaFold3 job directory and uses the CHTC-maintained AlphaFold3 container image, which is transferred to the Execution Point (EP) by HTCondor.
 
