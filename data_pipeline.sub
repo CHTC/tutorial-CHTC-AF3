@@ -21,6 +21,9 @@ when_to_transfer_output = ON_EXIT
 # We need this to transfer the databases to the execute node
 Requirements = (Target.HasCHTCStaging == true) && (TARGET.HasAlphafold3 == true)
 
+# We use this condition for internal logic and reporting, please do not remove.
++is_alphafold3 = true
+
 if defined USE_SMALL_DB
   # testing requirements
   request_memory = 8GB
