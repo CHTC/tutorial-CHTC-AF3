@@ -310,6 +310,8 @@ if [[ -n "$SINGIMG_PATH" ]] ; then # use apptainer to run the container
      --input_dir=/root/af_input \
      --model_dir=/root/models \
      --output_dir=/root/af_output \
+     --jackhmmer_n_cpu=$(PYTHON_CPU_COUNT) \
+     --nhmmer_n_cpu=$(PYTHON_CPU_COUNT) \
      $EXTRA_RUN_ALPHAFOLD_FLAGS ${USER_SPECIFIED_AF3_OPTIONS:-} \
     || exitcode=$?
 else # implies that we are already in the container
@@ -322,6 +324,8 @@ else # implies that we are already in the container
        --run_inference=true \
        --input_dir="${WORK_DIR_FULL_PATH}/af_input" \
        --output_dir="${WORK_DIR_FULL_PATH}/af_output" \
+       --jackhmmer_n_cpu=$(PYTHON_CPU_COUNT) \
+       --nhmmer_n_cpu=$(PYTHON_CPU_COUNT) \
        $EXTRA_RUN_ALPHAFOLD_FLAGS ${USER_SPECIFIED_AF3_OPTIONS:-} \
       || exitcode=$?
   popd # back to execution directory

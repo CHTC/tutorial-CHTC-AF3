@@ -21,6 +21,9 @@ when_to_transfer_output = ON_EXIT
 # We need this to transfer the databases to the execute node
 Requirements = (Target.HasCHTCStaging == true) && (TARGET.HasAlphafold3 == true)
 
+# We use this condition for internal logic and reporting, please do not remove.
++is_alphafold3 = true
+
 if defined USE_SMALL_DB
   # testing requirements
   request_memory = 8GB
@@ -31,7 +34,7 @@ else
   # full requirements
   request_memory = 8GB
   # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
-  request_disk = 70000000 - ( (TARGET.HasAlphafold3?: 1) * 65000000)
+  request_disk = 700000000 - ( (TARGET.HasAlphafold3?: 1) * 650000000)
   request_cpus = 8
   arguments = --work_dir_ext $(Cluster)_$(Proc)
 endif
