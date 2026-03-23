@@ -33,7 +33,7 @@ gpus_minimum_memory = 15 GB
 +GPUJobLength = "short"
 +WantGPULab = true
 +is_resumable = true
-+want_ospool = true
+want_ospool = true
 
 +is_alphafold3 = true
 

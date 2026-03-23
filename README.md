@@ -1,5 +1,7 @@
 # Predicting Protein Structures with AlphaFold3 on the CHTC GPU Capacity
 
+*Slides from the Feb. 11th training are available [here](https://docs.google.com/presentation/d/10-UUBKlYnul6KslN5slFQyCEebI6a0tyZwlucis-ynQ/edit?usp=sharing).*
+
 ## Introduction
 
 A two-phase workflow: alignment generation → structure prediction
