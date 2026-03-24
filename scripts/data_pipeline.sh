@@ -266,8 +266,8 @@ if [[ -n "$SINGIMG_PATH" ]] ; then
     --input_dir=/root/af_input \
     --model_dir=/root/models \
     --output_dir=/root/af_output \
-    --jackhmmer_n_cpu=$(PYTHON_CPU_COUNT) \
-    --nhmmer_n_cpu=$(PYTHON_CPU_COUNT) \
+    --jackhmmer_n_cpu=${PYTHON_CPU_COUNT} \
+    --nhmmer_n_cpu=${PYTHON_CPU_COUNT} \
     || exitcode=$?
 else # implies that we are already in the container
   WORK_DIR_FULL_PATH=`realpath ${WORK_DIR}` # full path to working directory
@@ -286,8 +286,8 @@ else # implies that we are already in the container
        --run_inference=false \
        --input_dir="${WORK_DIR_FULL_PATH}/af_input" \
        --output_dir="${WORK_DIR_FULL_PATH}/af_output" \
-       --jackhmmer_n_cpu=$(PYTHON_CPU_COUNT) \
-       --nhmmer_n_cpu=$(PYTHON_CPU_COUNT) \
+       --jackhmmer_n_cpu=${PYTHON_CPU_COUNT} \
+       --nhmmer_n_cpu=${PYTHON_CPU_COUNT} \
     || exitcode=$?
   popd # back to execution directory
 fi
