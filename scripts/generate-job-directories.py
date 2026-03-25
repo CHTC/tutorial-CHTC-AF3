@@ -25,6 +25,7 @@ Usage:
 import os
 import csv
 import json
+import math
 import argparse
 
 
@@ -124,6 +125,11 @@ def main():
         help="Path to write job directory list (default: ./list_of_af3_jobs.txt)",
     )
     parser.add_argument(
+        "--inference_jobs_list",
+        default="./list_of_af3_inference_jobs.txt",
+        help="Path to write inference job list with vRAM estimates (default: ./list_of_af3_inference_jobs.txt)",
+    )
+    parser.add_argument(
         "--seed",
         nargs="+",
         default=[1],
@@ -136,6 +142,9 @@ def main():
 
     jobs_list_path = args.jobs_list
     jobs_list_file = open(jobs_list_path, "w")
+
+    inference_jobs_list_path = args.inference_jobs_list
+    inference_jobs_list_file = open(inference_jobs_list_path, "w")
 
     with open(args.manifest, newline="") as csvfile:
         reader = csv.DictReader(csvfile)
@@ -194,9 +203,14 @@ def main():
 
             jobs_list_file.write(f"{job_dir_name}\n")
 
+            vram_gb = max(7, math.ceil(estimated_vram_gb))
+            inference_jobs_list_file.write(f"{job_dir_name},{vram_gb}\n")
+
     jobs_list_file.close()
+    inference_jobs_list_file.close()
     print("\nAll multi-molecule AF3 job directories generated.")
     print("\nThe list of job directories has been written to:", jobs_list_path)
+    print("The inference job list has been written to:", inference_jobs_list_path)
 
 
 if __name__ == "__main__":
