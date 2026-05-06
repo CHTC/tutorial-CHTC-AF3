@@ -53,6 +53,8 @@ WORK_DIR_EXT="random"
 # overrides $STAGING_DB_DIR and $DB_DIR_STUB
 EXTRACTED_DATABASE_PATH=""
 
+USER_SPECIFIED_AF3_OPTIONS=""
+
 # Check for pre-staged Alphafold3 database
 if [ -f .machine.ad ]; then
   if grep -q 'HasAlphafold3\s*=\s*true' .machine.ad; then
@@ -128,6 +130,11 @@ while [[ $# -gt 0 ]]; do
      -d|--extracted_database_path)
       EXTRACTED_DATABASE_PATH=`realpath "$2"`
       printinfo "Setting EXTRACTED_DATABASE_PATH: $EXTRACTED_DATABASE_PATH"
+      shift # past argument
+      shift # past value
+      ;;
+    -x|--user_specified_alphafold_options)
+      USER_SPECIFIED_AF3_OPTIONS="$2"
       shift # past argument
       shift # past value
       ;;
@@ -268,6 +275,7 @@ if [[ -n "$SINGIMG_PATH" ]] ; then
     --output_dir=/root/af_output \
     --jackhmmer_n_cpu=${PYTHON_CPU_COUNT} \
     --nhmmer_n_cpu=${PYTHON_CPU_COUNT} \
+    ${USER_SPECIFIED_AF3_OPTIONS:-} \
     || exitcode=$?
 else # implies that we are already in the container
   WORK_DIR_FULL_PATH=`realpath ${WORK_DIR}` # full path to working directory
@@ -288,6 +296,7 @@ else # implies that we are already in the container
        --output_dir="${WORK_DIR_FULL_PATH}/af_output" \
        --jackhmmer_n_cpu=${PYTHON_CPU_COUNT} \
        --nhmmer_n_cpu=${PYTHON_CPU_COUNT} \
+       ${USER_SPECIFIED_AF3_OPTIONS:-} \
     || exitcode=$?
   popd # back to execution directory
 fi
