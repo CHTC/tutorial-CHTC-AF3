@@ -55,6 +55,12 @@ EXTRACTED_DATABASE_PATH=""
 
 USER_SPECIFIED_AF3_OPTIONS=""
 
+# MSA cache (af3-cache) lookup settings. Caching is opt-in: with no API key
+# the lookup step is skipped entirely and the job runs exactly as before.
+CACHE_API_KEY=""
+CACHE_API_URL="https://149.165.170.71.sslip.io/v1/query"
+CACHE_PREFERRED_SOURCES=""
+
 # MSA parallelism defaults.
 # Default model: 1 CPU per HMMER worker, with workers set from PYTHON_CPU_COUNT.
 AF3_MSA_CPUS_PER_WORKER=1
@@ -156,6 +162,24 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+     -k|--cache_api_key)
+      CACHE_API_KEY="$2"
+      printinfo "MSA cache lookup enabled (API key supplied)"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_api_url)
+      CACHE_API_URL="$2"
+      printinfo "Setting CACHE_API_URL : ${CACHE_API_URL}"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_preferred_sources)
+      CACHE_PREFERRED_SOURCES="$2"
+      printinfo "Setting CACHE_PREFERRED_SOURCES : ${CACHE_PREFERRED_SOURCES}"
+      shift # past argument
+      shift # past value
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -195,6 +219,40 @@ else
   printerr "Cannot find any input files matching " \
            "*.json in directory : $(dirname $0)"
   exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# MSA cache lookup (opt-in). Before running the expensive de-novo MSA search,
+# query the af3-cache for each protein query sequence and, on a preferred-
+# source hit, fold the cached unpaired MSA into the job's input JSON so AF3
+# skips the search for that chain. Best-effort: it never aborts the job.
+# ---------------------------------------------------------------------------
+if [[ -z "${CACHE_API_KEY}" ]]; then
+  printinfo "No cache API key supplied — skipping MSA cache lookup (de-novo alignment)"
+else
+  CACHE_LOOKUP="$(dirname "$0")/cache_lookup.sh"
+  if [[ ! -f "${CACHE_LOOKUP}" ]]; then
+    printerr "cache_lookup.sh not found next to $0 — skipping MSA cache lookup"
+  else
+    CACHE_VERBOSITY=""
+    if [[ ${VERBOSE_LEVEL} -ge 2 ]]; then
+      CACHE_VERBOSITY="--verbose"
+    elif [[ ${VERBOSE_LEVEL} -le 0 ]]; then
+      CACHE_VERBOSITY="--silent"
+    fi
+    for cache_input in "${WORK_INPUT_DIR}"/*.json; do
+      [[ -e "${cache_input}" ]] || continue
+      printinfo "Querying MSA cache for $(basename "${cache_input}")"
+      bash "${CACHE_LOOKUP}" \
+        --input_json "${cache_input}" \
+        --api_key "${CACHE_API_KEY}" \
+        --api_url "${CACHE_API_URL}" \
+        --preferred_sources "${CACHE_PREFERRED_SOURCES}" \
+        --work_dir "${WORK_DIR}" \
+        ${CACHE_VERBOSITY} \
+        || printerr "cache_lookup.sh exited non-zero for ${cache_input} — continuing with de-novo alignment"
+    done
+  fi
 fi
 
 # Validate MSA parallelism settings after CLI overrides.
