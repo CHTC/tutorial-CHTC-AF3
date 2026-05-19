@@ -1,6 +1,6 @@
 # Predicting Protein Structures with AlphaFold3 on the CHTC GPU Capacity
 
-[![DOI](https://zenodo.org/badge/1098473856.svg)](https://zenodo.org/badge/latestdoi/1098473856)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19239059-blue)](https://doi.org/10.5281/zenodo.19239059)
 
 *Slides from the Feb. 11th training are available [here](https://docs.google.com/presentation/d/10-UUBKlYnul6KslN5slFQyCEebI6a0tyZwlucis-ynQ/edit?usp=sharing).*
 
