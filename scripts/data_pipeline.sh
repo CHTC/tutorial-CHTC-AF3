@@ -55,6 +55,11 @@ EXTRACTED_DATABASE_PATH=""
 
 USER_SPECIFIED_AF3_OPTIONS=""
 
+# MSA parallelism defaults.
+# Default model: 1 CPU per HMMER worker, with workers set from PYTHON_CPU_COUNT.
+AF3_MSA_CPUS_PER_WORKER=1
+AF3_MSA_WORKERS="${PYTHON_CPU_COUNT:-1}"
+
 # Check for pre-staged Alphafold3 database
 if [ -f .machine.ad ]; then
   if grep -q 'HasAlphafold3\s*=\s*true' .machine.ad; then
@@ -138,6 +143,19 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+     --msa_cpus_per_worker)
+      AF3_MSA_CPUS_PER_WORKER="$2"
+      printinfo "Setting AF3_MSA_CPUS_PER_WORKER : ${AF3_MSA_CPUS_PER_WORKER} -- Number of CPUs to request for each parallel MSA search for Jackhmmer and nhmmer"
+      shift
+      shift
+      ;;
+
+     --msa_workers)
+      AF3_MSA_WORKERS="$2"
+      printinfo "Setting AF3_MSA_WORKERS : ${AF3_MSA_WORKERS} -- Number of parallel MSA searchs to run for Jackhmmer and nhmmer"
+      shift
+      shift
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -177,6 +195,30 @@ else
   printerr "Cannot find any input files matching " \
            "*.json in directory : $(dirname $0)"
   exit 1
+fi
+
+# Validate MSA parallelism settings after CLI overrides.
+[[ "$AF3_MSA_CPUS_PER_WORKER" =~ ^[1-9][0-9]*$ ]] || {
+  printerr "--msa_cpus_per_worker must be a positive integer. Got: ${AF3_MSA_CPUS_PER_WORKER}"
+  exit 2
+}
+
+[[ "$AF3_MSA_WORKERS" =~ ^[1-9][0-9]*$ ]] || {
+  printerr "--msa_workers must be a positive integer. Got: ${AF3_MSA_WORKERS}"
+  exit 2
+}
+
+printinfo "AF3_MSA_CPUS_PER_WORKER : ${AF3_MSA_CPUS_PER_WORKER}"
+printinfo "AF3_MSA_WORKERS         : ${AF3_MSA_WORKERS}"
+
+AF3_ESTIMATED_MSA_CPU_USE=$(( AF3_MSA_CPUS_PER_WORKER * AF3_MSA_WORKERS ))
+printinfo "Estimated MSA CPU use   : ${AF3_ESTIMATED_MSA_CPU_USE}"
+
+if (( AF3_ESTIMATED_MSA_CPU_USE == 1 )); then
+  AF3_SINGLE_CORE_WARNING="WARNING: AlphaFold3 is running in single-core MSA mode. This mode can improve overall throughput and matchability, but individual jobs may run substantially longer, often 3-4x longer than multi-core runs. Expect runtimes of 1.5+ hours per query sequence, depending on sequence length and database performance. If you are running multiple query sequences, we strongly recommend splitting them into separate jobs with one query sequence per job."
+
+  echo "${AF3_SINGLE_CORE_WARNING}"
+  echo "${AF3_SINGLE_CORE_WARNING}" >&2
 fi
 
 ## copy the container if we are going to run commands inside it
@@ -258,6 +300,7 @@ if [[ -n "$SINGIMG_PATH" ]] ; then
     WORK_TMP_DIR="${WORK_DIR}/tmp"
     mkdir -p $WORK_TMP_DIR
   fi
+
   apptainer exec \
     --bind "${WORK_DIR}/af_input":/root/af_input \
     --bind "${WORK_DIR}/af_output":/root/af_output \
@@ -273,8 +316,10 @@ if [[ -n "$SINGIMG_PATH" ]] ; then
     --input_dir=/root/af_input \
     --model_dir=/root/models \
     --output_dir=/root/af_output \
-    --jackhmmer_n_cpu=${PYTHON_CPU_COUNT} \
-    --nhmmer_n_cpu=${PYTHON_CPU_COUNT} \
+    --jackhmmer_n_cpu="${AF3_MSA_CPUS_PER_WORKER}" \
+    --jackhmmer_n_workers="${AF3_MSA_WORKERS}"  \
+    --nhmmer_n_cpu="${AF3_MSA_CPUS_PER_WORKER}" \
+    --nhmmer_n_workers="${AF3_MSA_WORKERS}" \
     ${USER_SPECIFIED_AF3_OPTIONS:-} \
     || exitcode=$?
 else # implies that we are already in the container
@@ -294,8 +339,10 @@ else # implies that we are already in the container
        --run_inference=false \
        --input_dir="${WORK_DIR_FULL_PATH}/af_input" \
        --output_dir="${WORK_DIR_FULL_PATH}/af_output" \
-       --jackhmmer_n_cpu=${PYTHON_CPU_COUNT} \
-       --nhmmer_n_cpu=${PYTHON_CPU_COUNT} \
+       --jackhmmer_n_cpu="${AF3_MSA_CPUS_PER_WORKER}" \
+       --jackhmmer_n_workers="${AF3_MSA_WORKERS}"  \
+       --nhmmer_n_cpu="${AF3_MSA_CPUS_PER_WORKER}" \
+       --nhmmer_n_workers="${AF3_MSA_WORKERS}" \
        ${USER_SPECIFIED_AF3_OPTIONS:-} \
     || exitcode=$?
   popd # back to execution directory

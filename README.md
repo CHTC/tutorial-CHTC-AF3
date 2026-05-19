@@ -1,5 +1,6 @@
 # Predicting Protein Structures with AlphaFold3 on the CHTC GPU Capacity
-<a href="https://doi.org/10.5281/zenodo.19239058"><img src="https://zenodo.org/badge/1098473856.svg" alt="DOI"></a>
+
+[![DOI](https://zenodo.org/badge/1098473856.svg)](https://zenodo.org/badge/latestdoi/1098473856)
 
 *Slides from the Feb. 11th training are available [here](https://docs.google.com/presentation/d/10-UUBKlYnul6KslN5slFQyCEebI6a0tyZwlucis-ynQ/edit?usp=sharing).*
 
@@ -83,7 +84,9 @@ This tutorial also assumes that you:
 "](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and our ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission) guide before starting this tutorial.
 
 ### Time Estimation
-Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline execution typically takes 30 minutes or more depending on sequence length and cluster load. Small test runs using `USE_SMALL_DB=1` often complete in 10–30 minutes.
+Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline execution typically takes 30 minutes or more depending on sequence length, alignment depth, database location, and cluster load. Small test runs using `USE_SMALL_DB=1` often complete in 10–30 minutes.
+
+The data-pipeline stage can be run with different CPU/worker settings. Single-core mode improves matchability and can increase overall throughput across many independent jobs, but each individual job may take substantially longer. For full-database jobs in single-core mode, expect runtimes of 1.5+ hours per query sequence, and potentially longer for conserved proteins with deep alignments.
 
 ### Clone the Tutorial Repository
 
@@ -145,6 +148,23 @@ The first stage of AlphaFold3 prepares all input features needed for structure p
 Notes:
 - Data-stage jobs are CPU-bound and scale to many sequences in parallel across different machines.
 - AF3 databases are large (~750 GB); use CHTC execution points (EPs) with pre-staged databases when available to avoid repeated transfers and long queue waits.
+
+#### MSA CPU and Worker Settings
+
+The data pipeline uses HMMER-based searches to generate alignments. The `data_pipeline.sh` wrapper exposes two options that control how much CPU parallelism each data-pipeline job uses:
+
+- `--msa_cpus_per_worker <N>` controls how many CPUs each individual Jackhmmer/Nhmmer search may use. The default is `1`.
+- `--msa_workers <N>` controls how many MSA searches may run at the same time. If this option is not provided, the wrapper uses `PYTHON_CPU_COUNT` when it is available, otherwise it defaults to `1`.
+
+The approximate CPU demand of the MSA stage is:
+
+```text
+estimated MSA CPU use = msa_cpus_per_worker × msa_workers
+```
+
+For OSPool-style throughput, we generally recommend keeping `--msa_cpus_per_worker 1` and scaling with `--msa_workers`. For example, a 4-core data-pipeline job should usually run as `--msa_cpus_per_worker 1 --msa_workers 4`, rather than `--msa_cpus_per_worker 4 --msa_workers 1`. This keeps each HMMER process simple to account for while still allowing multiple independent database searches to run concurrently.
+
+When the estimated MSA CPU use is `1`, the wrapper prints a warning to both stdout and stderr that the job is running in single-core mode. This is valid and often useful for high-throughput runs, but users should expect longer per-job runtimes.
 
 ### The GPU-Accelerated Pipeline: Structural Prediction (Stage 2)
 Once the data pipeline has produced MSAs and templates, AF3’s second stage uses this information to generate atomic-resolution structural models.
@@ -208,7 +228,7 @@ For this tutorial, we will create individual JSON files for each protein sequenc
 ```bash
 ./AF3_Jobs/Job3_ProteinZ/
 ├── data_inputs                            # data_inputs directory for the data pipeline
-│   └── fold_input.json              # input JSON for data pipeline
+│   └── fold_input.json              # input JSON for data pipeline
 └── inference_inputs                       # inference_inputs directory for the GPU inference pipeline
 └── <error and output files>             # stdout/stderr files will be written here
 ```
@@ -232,20 +252,20 @@ This directory structure will be used for each sequence prediction workflow. Whi
    ```bash
     AF3_Jobs/
     ├── Job1_XP_053696736.1_Sabethes_cyaneus
-    │   ├── data_inputs
-    │   │   └── fold_input.json
-    │   └── inference_inputs
+    │   ├── data_inputs
+    │   │   └── fold_input.json
+    │   └── inference_inputs
     ├── Job2_XP_001663870.2_Aedes_aegypti
-    │   ├── data_inputs
-    │   │   └── fold_input.json
-    │   └── inference_inputs
+    │   ├── data_inputs
+    │   │   └── fold_input.json
+    │   └── inference_inputs
     ├── Job3_XP_029709661.2_Aedes_albopictus
-    │   ├── data_inputs
-    │   │   └── fold_input.json
-    │   └── inference_inputs
+    │   ├── data_inputs
+    │   │   └── fold_input.json
+    │   └── inference_inputs
     └── Job4_XP_001659963.1_Aedes_aegypti_Actin
         ├── data_inputs
-        │   └── fold_input.json
+        │   └── fold_input.json
         └── inference_inputs
    ```
 
@@ -342,43 +362,45 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
     # CHTC maintained container for AlphaFold3 as of December 2025
     # Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
     container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
-    
+
     executable = scripts/data_pipeline.sh
-    
+
     log = ./logs/data_pipeline.log
     output = data_pipeline_$(Cluster)_$(Process).out
     error  = data_pipeline_$(Cluster)_$(Process).err
-    
+
     initialdir = AF3_Jobs/$(my_directory)
     transfer_input_files = data_inputs/
-    
+
     # transfer output files back to the submit node
     transfer_output_files = data_pipeline.tar.gz
     transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
-    
+
     should_transfer_files = YES
     when_to_transfer_output = ON_EXIT
-    
-    # We need this to transfer the databases to the execute node
+
+    # Match to execution points with the pre-staged AlphaFold3 databases.
     Requirements = (Target.HasCHTCStaging == true) && (TARGET.HasAlphafold3 == true)
-    
+
     if defined USE_SMALL_DB
       # testing requirements
       request_memory = 8GB
       request_disk = 16GB
-      request_cpus = 4
-      arguments = --smalldb --work_dir_ext $(Cluster)_$(Process) --verbose
+      request_cpus = 1
+      arguments = --smalldb --work_dir_ext $(Cluster)_$(Process) --verbose --msa_cpus_per_worker 1 --msa_workers 1
     else
       # full requirements
       request_memory = 8GB
       # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
       request_disk = 700000000 - ( (TARGET.HasAlphafold3?: 1) * 650000000)
-      request_cpus = 8
-      arguments = --work_dir_ext $(Cluster)_$(Proc)
+      request_cpus = 4
+      arguments = --work_dir_ext $(Cluster)_$(Process) --msa_cpus_per_worker 1 --msa_workers 4
     endif
-    
+
     queue my_directory from list_of_af3_jobs.txt
    ```
+
+In the full-database example above, each data-pipeline job requests 4 CPUs and passes `--msa_cpus_per_worker 1 --msa_workers 4` to the wrapper. This means the job may run up to four independent MSA searches concurrently, with each search using one CPU. For maximum opportunistic matchability, you can instead request one CPU and run with `--msa_workers 1`; this single-core mode is slower per job but may allow more jobs to run at once.
 
 This submit file will read the contents of `list_of_af3_jobs.txt`, iterate through each line, and assign the value of each line to the variable `$(directory)`. This allows you to programmatically submit _N_ jobs, where _N_ equals the number of AlphaFold3 job directories you previously created. Each job processes one AlphaFold3 job directory and uses the CHTC-maintained AlphaFold3 container image, which is transferred to the Execution Point (EP) by HTCondor.
 
@@ -399,6 +421,19 @@ This submit file will read the contents of `list_of_af3_jobs.txt`, iterate throu
     ```bash
    condor_watch_q
    ```
+
+#### Choosing Data-Pipeline CPU Settings
+
+The best CPU setting depends on whether you want shorter runtimes for each individual job or higher overall throughput across many jobs.
+
+| Goal | `request_cpus` | Recommended wrapper arguments | Notes |
+|------|----------------|-------------------------------|-------|
+| Maximum matchability / many independent jobs | `1` | `--msa_cpus_per_worker 1 --msa_workers 1` | Slowest per job, but easiest to match. Expect substantially longer runtimes. |
+| Balanced OSPool default | `2` | `--msa_cpus_per_worker 1 --msa_workers 2` | Good compromise for many production runs. |
+| Faster per-job runtime on pre-staged DB nodes | `4` | `--msa_cpus_per_worker 1 --msa_workers 4` | Runs multiple database searches concurrently. Recommended when database I/O is local and stable. |
+| Single search using multiple CPUs | `4` | `--msa_cpus_per_worker 4 --msa_workers 1` | Useful when you want to avoid multiple simultaneous database scans, but usually not the preferred OSPool default. |
+
+Do not set `--msa_cpus_per_worker × --msa_workers` higher than `request_cpus`. For example, if `request_cpus = 4`, avoid `--msa_cpus_per_worker 4 --msa_workers 4`, because that can create roughly 16 CPUs worth of MSA demand inside a 4-CPU allocation.
 
 #### AlphaFold3 Databases on CHTC
 
@@ -529,7 +564,7 @@ AlphaFold3 generates a variety of output files, including predicted 3D structure
     Bucky@MyLaptop ~ % 
    ```
 
-    **_Note:_** Notice the chance in the prompt, indicating you are back on your local laptop. 
+    **_Note:_** Notice the change in the prompt, indicating you are back on your local laptop. 
 
 2. For each job directory, download and extract the `<job_name>.inference_pipeline.tar.gz` file to your local machine:
 
@@ -558,7 +593,6 @@ Now that you've successfully run the full AlphaFold3 two-stage workflow on the C
   * Protein–RNA or protein–DNA complexes 
   * Ligands or modified residues (e.g., 2′-O-methyl RNA, PTMs)
 * Re-use the data pipeline outputs to run multiple inference configurations (different seeds, different AF3 options) without recomputing MSAs.
-                                                    |
 
 🚀 Run Larger Analyses
 Once you’re comfortable with the basics, try:
@@ -627,6 +661,30 @@ Databases may be updated periodically by CHTC staff. If you require a custom dat
 | `--container <image>` | Path to Apptainer image |
 | `--smalldb` | Use a reduced-size database set |
 | `--extracted_database_path <path>` | Use provided database directory |
+| `--msa_cpus_per_worker <N>` | Number of CPUs used by each individual Jackhmmer/Nhmmer search. Defaults to `1`. |
+| `--msa_workers <N>` | Number of parallel MSA searches to run. Defaults to `PYTHON_CPU_COUNT` if set, otherwise `1`. |
+| `--user_specified_alphafold_options "<options>"` | Additional options passed directly to `run_alphafold.py` |
+
+The MSA CPU options are the main controls for data-pipeline parallelism. The estimated CPU use is:
+
+```text
+estimated MSA CPU use = msa_cpus_per_worker × msa_workers
+```
+
+For example:
+
+```bash
+# Single-core mode
+./data_pipeline.sh --msa_cpus_per_worker 1 --msa_workers 1
+
+# Four-core worker-parallel mode
+./data_pipeline.sh --msa_cpus_per_worker 1 --msa_workers 4
+
+# Four CPUs assigned to one MSA search at a time
+./data_pipeline.sh --msa_cpus_per_worker 4 --msa_workers 1
+```
+
+If both values multiply to `1`, the wrapper reports that AlphaFold3 is running in single-core MSA mode. This is allowed, and can be useful for throughput-oriented OSPool runs, but users should expect longer job runtimes.
 
 #### 3. Working Directory Setup
 
