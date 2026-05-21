@@ -34,9 +34,44 @@ MAX_ATTEMPTS=4    # 1 initial attempt + 3 retries
 CURL_MAX_TIME=60  # seconds, per request
 PYBIN="${PYTHON_BIN:-python3}"
 
+function print_help() {
+  cat <<EOF
+Usage: $(basename "$0") --input_json <path> [options]
+
+Queries the af3-cache for cached unpaired MSAs for each protein sequence in
+the input JSON and, on a preferred-source hit, rewrites the JSON in place so
+AF3 skips the unpaired MSA search. Best-effort: failures degrade to de-novo
+alignment and the script exits 0 (except for invalid CLI arguments => exit 2).
+
+Arguments:
+  --input_json <path>          AF3 input JSON to query and rewrite in place (required).
+  --api_key <key>              X-API-Key for the af3-cache server.
+  --api_url <url>              Cache query endpoint.
+  --preferred_sources <csv>    Comma-separated source-name preference order.
+                               Empty string => accept the first available hit.
+  --work_dir <path>            Directory for downloaded .a3m files (created if missing).
+  -v, --verbose                Verbose logging (DEBUG).
+  -s, --silent                 Silent logging (errors only).
+  -h, --help                   Print this help and exit.
+
+Defaults:
+  INPUT_JSON          = ${INPUT_JSON:-<unset>}
+  API_KEY             = ${API_KEY}
+  API_URL             = ${API_URL}
+  PREFERRED_SOURCES   = ${PREFERRED_SOURCES}
+  WORK_DIR            = ${WORK_DIR}
+  MAX_ATTEMPTS        = ${MAX_ATTEMPTS}
+  CURL_MAX_TIME       = ${CURL_MAX_TIME}
+  PYBIN               = ${PYBIN}
+  VERBOSE_LEVEL       = ${VERBOSE_LEVEL}
+EOF
+}
+
 # ---- argument parsing ----
 while [[ $# -gt 0 ]]; do
   case $1 in
+    -h|--help)
+      print_help; exit 0;;
     --input_json)
       INPUT_JSON="$2"; shift; shift;;
     --api_key)

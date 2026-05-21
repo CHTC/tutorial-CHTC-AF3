@@ -55,8 +55,10 @@ EXTRACTED_DATABASE_PATH=""
 
 USER_SPECIFIED_AF3_OPTIONS=""
 
-# MSA cache (af3-cache) lookup settings. Caching is opt-in: with no API key
-# the lookup step is skipped entirely and the job runs exactly as before.
+# MSA cache (af3-cache) lookup settings. Caching is opt-in: the lookup step
+# runs only when --use-cached-msa is passed, and the job otherwise runs
+# exactly as before.
+USE_CACHED_MSA=0
 CACHE_API_KEY=""
 CACHE_API_URL="https://149.165.170.71.sslip.io/v1/query"
 CACHE_PREFERRED_SOURCES=""
@@ -162,9 +164,14 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+     --use-cached-msa)
+      USE_CACHED_MSA=1
+      printinfo "MSA cache lookup enabled (--use-cached-msa)"
+      shift # past argument
+      ;;
      -k|--cache_api_key)
       CACHE_API_KEY="$2"
-      printinfo "MSA cache lookup enabled (API key supplied)"
+      printinfo "Cache API key supplied"
       shift # past argument
       shift # past value
       ;;
@@ -227,32 +234,31 @@ fi
 # source hit, fold the cached unpaired MSA into the job's input JSON so AF3
 # skips the search for that chain. Best-effort: it never aborts the job.
 # ---------------------------------------------------------------------------
-if [[ -z "${CACHE_API_KEY}" ]]; then
-  printinfo "No cache API key supplied — skipping MSA cache lookup (de-novo alignment)"
+if [[ "${USE_CACHED_MSA}" -ne 1 ]]; then
+  printinfo "MSA cache lookup not requested (pass --use-cached-msa to enable) — running de-novo alignment"
+elif [[ -z "${CACHE_API_KEY}" ]]; then
+  printerr "--use-cached-msa was passed but no --cache_api_key supplied — skipping MSA cache lookup (de-novo alignment)"
+elif ! command -v cache_lookup.sh >/dev/null 2>&1; then
+  printerr "cache_lookup.sh not found on PATH (expected in container at /opt/af3-caching/cache_lookup.sh) — skipping MSA cache lookup"
 else
-  CACHE_LOOKUP="$(dirname "$0")/cache_lookup.sh"
-  if [[ ! -f "${CACHE_LOOKUP}" ]]; then
-    printerr "cache_lookup.sh not found next to $0 — skipping MSA cache lookup"
-  else
-    CACHE_VERBOSITY=""
-    if [[ ${VERBOSE_LEVEL} -ge 2 ]]; then
-      CACHE_VERBOSITY="--verbose"
-    elif [[ ${VERBOSE_LEVEL} -le 0 ]]; then
-      CACHE_VERBOSITY="--silent"
-    fi
-    for cache_input in "${WORK_INPUT_DIR}"/*.json; do
-      [[ -e "${cache_input}" ]] || continue
-      printinfo "Querying MSA cache for $(basename "${cache_input}")"
-      bash "${CACHE_LOOKUP}" \
-        --input_json "${cache_input}" \
-        --api_key "${CACHE_API_KEY}" \
-        --api_url "${CACHE_API_URL}" \
-        --preferred_sources "${CACHE_PREFERRED_SOURCES}" \
-        --work_dir "${WORK_DIR}" \
-        ${CACHE_VERBOSITY} \
-        || printerr "cache_lookup.sh exited non-zero for ${cache_input} — continuing with de-novo alignment"
-    done
+  CACHE_VERBOSITY=""
+  if [[ ${VERBOSE_LEVEL} -ge 2 ]]; then
+    CACHE_VERBOSITY="--verbose"
+  elif [[ ${VERBOSE_LEVEL} -le 0 ]]; then
+    CACHE_VERBOSITY="--silent"
   fi
+  for cache_input in "${WORK_INPUT_DIR}"/*.json; do
+    [[ -e "${cache_input}" ]] || continue
+    printinfo "Querying MSA cache for $(basename "${cache_input}")"
+    cache_lookup.sh \
+      --input_json "${cache_input}" \
+      --api_key "${CACHE_API_KEY}" \
+      --api_url "${CACHE_API_URL}" \
+      --preferred_sources "${CACHE_PREFERRED_SOURCES}" \
+      --work_dir "${WORK_DIR}" \
+      ${CACHE_VERBOSITY} \
+      || printerr "cache_lookup.sh exited non-zero for ${cache_input} — continuing with de-novo alignment"
+  done
 fi
 
 # Validate MSA parallelism settings after CLI overrides.
