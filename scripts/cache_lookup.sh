@@ -355,7 +355,8 @@ for entry in data.get("sequences") or []:
         continue
     with open(a3m_path) as af:
         prot["unpairedMsa"] = af.read()
-    prot["pairedMsa"] = None
+    prot["pairedMsa"] = ""
+    prot["templates"] = None
     count += 1
 
 d = os.path.dirname(os.path.abspath(json_path)) or "."
