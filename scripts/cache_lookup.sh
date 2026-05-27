@@ -87,16 +87,17 @@ while [[ $# -gt 0 ]]; do
     -s|--silent)
       VERBOSE_LEVEL=0; shift;;
     -*|--*)
-      printerr "Unknown option $1"; exit 2;;
+      printerr "Unknown option $1 — skipping MSA cache lookup"; exit 0;;
     *)
-      printerr "Unexpected argument $1"; exit 2;;
+      printerr "Unexpected argument $1 — skipping MSA cache lookup"; exit 0;;
   esac
 done
 
-# ---- validate arguments (bad args => exit 2; anything else => exit 0) ----
-if [[ -z "$INPUT_JSON" ]]; then printerr "--input_json is required"; exit 2; fi
-if [[ ! -f "$INPUT_JSON" ]]; then printerr "--input_json not found: $INPUT_JSON"; exit 2; fi
-if [[ -z "$API_KEY" ]]; then printerr "--api_key is required"; exit 2; fi
+# ---- validate arguments. The cache must NEVER interrupt the job, so any bad or
+# ---- missing argument is logged and we exit 0 (skip lookup, run de-novo).
+if [[ -z "$INPUT_JSON" ]]; then printerr "--input_json is required — skipping MSA cache lookup"; exit 0; fi
+if [[ ! -f "$INPUT_JSON" ]]; then printerr "--input_json not found: $INPUT_JSON — skipping MSA cache lookup"; exit 0; fi
+if [[ -z "$API_KEY" ]]; then printerr "--api_key is required — skipping MSA cache lookup"; exit 0; fi
 if ! command -v "$PYBIN" >/dev/null 2>&1; then
   printerr "$PYBIN not found — skipping MSA cache lookup, proceeding de-novo"
   exit 0

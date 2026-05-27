@@ -63,6 +63,13 @@ CACHE_API_KEY=""
 CACHE_API_URL="https://149.165.170.71.sslip.io/v1/query"
 CACHE_PREFERRED_SOURCES=""
 
+# MSA cache write-back (contribution) settings. When --cache_api_key is set,
+# de-novo alignments are contributed back to the cache after a successful run.
+CACHE_API_BASE_URL="https://149.165.170.71.sslip.io"
+CACHE_DB_VERSION="AlphaFold Monomer v2.0 pipeline 2025-08-01T00:00:00Z"
+# Per-file upload retries (after the first attempt) when contributing a3m files.
+CACHE_UPLOAD_RETRIES=5
+
 # MSA parallelism defaults.
 # Default model: 1 CPU per HMMER worker, with workers set from PYTHON_CPU_COUNT.
 AF3_MSA_CPUS_PER_WORKER=1
@@ -184,6 +191,24 @@ while [[ $# -gt 0 ]]; do
      --cache_preferred_sources)
       CACHE_PREFERRED_SOURCES="$2"
       printinfo "Setting CACHE_PREFERRED_SOURCES : ${CACHE_PREFERRED_SOURCES}"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_api_base_url)
+      CACHE_API_BASE_URL="$2"
+      printinfo "Setting CACHE_API_BASE_URL : ${CACHE_API_BASE_URL}"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_db_version)
+      CACHE_DB_VERSION="$2"
+      printinfo "Setting CACHE_DB_VERSION : ${CACHE_DB_VERSION}"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_upload_retries)
+      CACHE_UPLOAD_RETRIES="$2"
+      printinfo "Setting CACHE_UPLOAD_RETRIES : ${CACHE_UPLOAD_RETRIES}"
       shift # past argument
       shift # past value
       ;;
@@ -416,6 +441,44 @@ fi
 if (( exitcode != 0 )); then
     printerr "Alphafold3 FAILED with exit code ${exitcode}"
     exit $exitcode
+fi
+
+# ---------------------------------------------------------------------------
+# MSA cache write-back (auto when --cache_api_key is set). AlphaFold3 succeeded,
+# so contribute every de-novo protein alignment back to the af3-cache. The
+# separate cache_upload.sh diffs the post-lookup inputs against the AF3 output
+# *_data.json, uploads each recomputed a3m with a scoped Pelican write token,
+# and confirms with the server. Best-effort: it never aborts the job.
+# ---------------------------------------------------------------------------
+if [[ -z "${CACHE_API_KEY}" ]]; then
+  printverbose "No cache API key supplied — not contributing alignments to the cache"
+elif ! command -v cache_upload.sh >/dev/null 2>&1; then
+  printerr "cache_upload.sh not found on PATH (expected in container at /opt/af3-caching/cache_upload.sh) — skipping MSA cache contribution"
+else
+  # requester = RemoteOwner from the HTCondor machine ad (audit only)
+  MACHINE_AD="${_CONDOR_MACHINE_AD:-.machine.ad}"
+  CACHE_REQUESTER=""
+  if [[ -f "${MACHINE_AD}" ]]; then
+    CACHE_REQUESTER="$(grep -E '^[[:space:]]*RemoteOwner[[:space:]]*=' "${MACHINE_AD}" | head -1 | sed -E 's/.*"([^"]*)".*/\1/' || true)"
+  fi
+  CACHE_VERBOSITY=""
+  if [[ ${VERBOSE_LEVEL} -ge 2 ]]; then
+    CACHE_VERBOSITY="--verbose"
+  elif [[ ${VERBOSE_LEVEL} -le 0 ]]; then
+    CACHE_VERBOSITY="--silent"
+  fi
+  printinfo "Contributing de-novo alignments to the MSA cache (requester: ${CACHE_REQUESTER:-unknown})"
+  cache_upload.sh \
+    --af_input_dir "${WORK_INPUT_DIR}" \
+    --af_output_dir "${WORK_DIR}/af_output" \
+    --api_key "${CACHE_API_KEY}" \
+    --api_base_url "${CACHE_API_BASE_URL}" \
+    --db_version "${CACHE_DB_VERSION}" \
+    --requester "${CACHE_REQUESTER}" \
+    --upload_retries "${CACHE_UPLOAD_RETRIES}" \
+    --work_dir "${WORK_DIR}" \
+    ${CACHE_VERBOSITY} \
+    || printerr "cache_upload.sh exited non-zero — alignments may not have been contributed"
 fi
 
 printverbose "Finished running Alphafold3 data pipeline. Packing up output dir"
