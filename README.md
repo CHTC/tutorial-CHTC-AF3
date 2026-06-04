@@ -394,7 +394,7 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
     ```bash
 	# CHTC maintained container for AlphaFold3 as of December 2025
 	# Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
-	container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
+	container_image = osdf:///osg-public/containers/alphafold3-custom-v6.sif
 	
 	executable = scripts/data_pipeline.sh
 	
@@ -419,24 +419,24 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
 	+is_alphafold3 = true
 	
 	if defined USE_SMALL_DB
-	  # testing requirements
-	  request_memory = 8GB
-	  request_disk = 16GB
+ 	 # testing requirements
+ 	 request_memory = 8GB
+ 	 request_disk = 16GB
  	 request_cpus = 4
-	  arguments = --smalldb --work_dir_ext $(Cluster)_$(Process) --verbose
+ 	 arguments = --smalldb --work_dir_ext $(Cluster)_$(Process) --verbose
 	else
 	  # full requirements
-	  request_memory = 8GB
-	  # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
+	  request_memory = 24GB
+ 	 # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
 	  request_disk = 700000000 - ( (TARGET.HasAlphafold3?: 1) * 650000000)
- 	 request_cpus = 8
- 	 arguments = --work_dir_ext $(Cluster)_$(Proc)
+	  request_cpus = 8
+ 	 arguments = "--work_dir_ext $(Cluster)_$(Process) --cache_api_key <API_KEY> --use-cached-msa --msa_cpus_per_worker 1 --cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'"
 	endif
 	
 	queue my_directory from list_of_af3_jobs.txt
    ```
 
-In the full-database example above, each data-pipeline job requests 4 CPUs and passes `--msa_cpus_per_worker 1 --msa_workers 4` to the wrapper. This means the job may run up to four independent MSA searches concurrently, with each search using one CPU. For maximum opportunistic matchability, you can instead request one CPU and run with `--msa_workers 1`; this single-core mode is slower per job but may allow more jobs to run at once.
+In the full-database example above, each data-pipeline job requests 4 CPUs and passes `--msa_cpus_per_worker 1 --msa_workers 4` to the wrapper. This means the job may run up to four independent MSA searches concurrently, with each search using one CPU. For maximum opportunistic matchability, you can instead request one CPU and run with `--msa_workers 1`; this single-core mode is slower per job but may allow more jobs to run at once. The `--cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'` specifies a list of opt-in sources you would like to pull pre-computed alignment from. Learn more at [https://osg-htc.org/services/osdf/alphafold](https://osg-htc.org/services/osdf/alphafold). It is important that you include an API Key, in order to use the API please contact us at chtc@cs.wisc.edu and request a key. 
 
 This submit file will read the contents of `list_of_af3_jobs.txt`, iterate through each line, and assign the value of each line to the variable `$(directory)`. This allows you to programmatically submit _N_ jobs, where _N_ equals the number of AlphaFold3 job directories you previously created. Each job processes one AlphaFold3 job directory and uses the CHTC-maintained AlphaFold3 container image, which is transferred to the Execution Point (EP) by HTCondor.
 
@@ -500,15 +500,16 @@ Once the data-pipeline jobs have finished generating alignments and features, th
 3. Create your submit file `inference_pipeline.sub`. You will need to edit the `MODEL_WEIGHT_PATH` **and** `gpus_minimum_memory`. You can specify additional parameters for the executable in the `arguments` attribute as needed. 
 
     ```bash
-    # CHTC maintained container for AlphaFold3 as of December 2025
+	   # CHTC maintained container for AlphaFold3 as of December 2025
 	# Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
-	container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
+	#container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
+	container_image = osdf:///osg-public/containers/alphafold3-custom-v6.sif
 	
 	executable = scripts/inference_pipeline.sh
 	
 	environment = "myjobdir=$(my_directory)"
 	
-	MODEL_WEIGHTS_PATH = /staging/<netID>/tutorial-CHTC-AF3/af3.bin.zst
+	MODEL_WEIGHTS_PATH = /staging/<n>/<NetID>/tutorial-CHTC-AF3/af3.bin.zst
 	
 	log = ./logs/inference_pipeline.log
 	output = inference_pipeline_$(Cluster)_$(Process).out
@@ -536,7 +537,7 @@ Once the data-pipeline jobs have finished generating alignments and features, th
 	+WantGPULab = true
 	+is_resumable = true
 	want_ospool = true
-	
+
 	+is_alphafold3 = true
 	
 	# Use --user-specified-alphafold-options to pass any extra options to AlphaFold3, such as
