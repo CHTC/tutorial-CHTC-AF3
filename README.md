@@ -392,46 +392,48 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
 3. Create your submit file `data_pipeline.sub` in the top level of the cloned repository. The submit file below works out-of-the-box if you've setup your directories as specified in section [Setting Up AlphaFold3 Input JSONs and Job Directories](#data-wrangling-and-preparing-alphafold3-inputs)). You can specify additional parameters for the executable in the `arguments` attribute as needed. 
 
     ```bash
-    # CHTC maintained container for AlphaFold3 as of December 2025
-    # Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
-    container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
-    container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
-
-    executable = scripts/data_pipeline.sh
-
-    log = ./logs/data_pipeline.log
-    output = data_pipeline_$(Cluster)_$(Process).out
-    error  = data_pipeline_$(Cluster)_$(Process).err
-
-    initialdir = AF3_Jobs/$(my_directory)
-    transfer_input_files = data_inputs/
-
-    # transfer output files back to the submit node
-    transfer_output_files = data_pipeline.tar.gz
-    transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
-
-    should_transfer_files = YES
-    when_to_transfer_output = ON_EXIT
-
-    # Match to execution points with the pre-staged AlphaFold3 databases.
-    Requirements = (Target.HasCHTCStaging == true) && (TARGET.HasAlphafold3 == true)
-
-    if defined USE_SMALL_DB
-      # testing requirements
-      request_memory = 8GB
-      request_disk = 16GB
-      request_cpus = 1
-      arguments = --smalldb --work_dir_ext $(Cluster)_$(Process) --verbose --msa_cpus_per_worker 1 --msa_workers 1
-    else
-      # full requirements
-      request_memory = 8GB
-      # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
-      request_disk = 700000000 - ( (TARGET.HasAlphafold3?: 1) * 650000000)
-      request_cpus = 4
-      arguments = --work_dir_ext $(Cluster)_$(Process) --msa_cpus_per_worker 1 --msa_workers 4 --use-cached-msa 
-    endif
-
-    queue my_directory from list_of_af3_jobs.txt
+	# CHTC maintained container for AlphaFold3 as of December 2025
+	# Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
+	container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
+	
+	executable = scripts/data_pipeline.sh
+	
+	log = ./logs/data_pipeline.log
+	output = data_pipeline_$(Cluster)_$(Process).out
+	error  = data_pipeline_$(Cluster)_$(Process).err
+	
+	initialdir = AF3_Jobs/$(my_directory)
+	transfer_input_files = data_inputs/
+	
+	# transfer output files back to the submit node
+	transfer_output_files = data_pipeline.tar.gz
+	transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
+	
+	should_transfer_files = YES
+	when_to_transfer_output = ON_EXIT
+	
+	# We need this to transfer the databases to the execute node
+	Requirements = (Target.HasCHTCStaging == true) && (TARGET.HasAlphafold3 == true)
+	
+	# We use this condition for internal logic and reporting, please do not remove.
+	+is_alphafold3 = true
+	
+	if defined USE_SMALL_DB
+	  # testing requirements
+	  request_memory = 8GB
+	  request_disk = 16GB
+ 	 request_cpus = 4
+	  arguments = --smalldb --work_dir_ext $(Cluster)_$(Process) --verbose
+	else
+	  # full requirements
+	  request_memory = 8GB
+	  # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
+	  request_disk = 700000000 - ( (TARGET.HasAlphafold3?: 1) * 650000000)
+ 	 request_cpus = 8
+ 	 arguments = --work_dir_ext $(Cluster)_$(Proc)
+	endif
+	
+	queue my_directory from list_of_af3_jobs.txt
    ```
 
 In the full-database example above, each data-pipeline job requests 4 CPUs and passes `--msa_cpus_per_worker 1 --msa_workers 4` to the wrapper. This means the job may run up to four independent MSA searches concurrently, with each search using one CPU. For maximum opportunistic matchability, you can instead request one CPU and run with `--msa_workers 1`; this single-core mode is slower per job but may allow more jobs to run at once.
@@ -499,48 +501,49 @@ Once the data-pipeline jobs have finished generating alignments and features, th
 
     ```bash
     # CHTC maintained container for AlphaFold3 as of December 2025
-    # Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
-    container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
-    container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
-    
-    executable = inference_pipeline.sh
-    
-    environment = "myjobdir=$(my_directory)"
-    
-    MODEL_WEIGHTS_PATH = /staging/<netID>/tutorial-CHTC-AF3/af3.bin.zst
-    
-    log = ../logs/inference_pipeline.$(Cluster).log
-    output = inference_pipeline_$(Cluster)_$(Process).out
-    error  = inference_pipeline_$(Cluster)_$(Process).err
-    
-    initialdir = $(my_directory)
-    
-    # transfer all files in the inference_inputs directory
-    transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
-    
-    should_transfer_files = YES
-    when_to_transfer_output = ON_EXIT
-    
-    request_memory = 8GB
-    # need space for the container (3GB) as well
-    request_disk = 10GB
-    request_cpus = 4
-    request_gpus = 1
-    
-    # Use the CHTC recommended AF3 memory requirement based on the number of tokens
-    gpus_minimum_memory = 0
-    
-    # short jobs 4-6 hours so it is okay to use is_resumable
-    +GPUJobLength = "short"
-    +WantGPULab = true
-    +is_resumable = true
-    +want_ospool = true
-    
-    # Use --user-specified-alphafold-options to pass any extra options to AlphaFold3, such as
-    # arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process) --user-specified-alphafold-options "--buckets 5982"
-    arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process)
-    
-    queue my_directory from list_of_af3_jobs.txt 
+	# Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
+	container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
+	
+	executable = scripts/inference_pipeline.sh
+	
+	environment = "myjobdir=$(my_directory)"
+	
+	MODEL_WEIGHTS_PATH = /staging/<netID>/tutorial-CHTC-AF3/af3.bin.zst
+	
+	log = ./logs/inference_pipeline.log
+	output = inference_pipeline_$(Cluster)_$(Process).out
+	error  = inference_pipeline_$(Cluster)_$(Process).err
+	
+	initialdir = AF3_Jobs/$(my_directory)
+	
+	# transfer all files in the inference_inputs directory
+	transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
+	
+	should_transfer_files = YES
+	when_to_transfer_output = ON_EXIT
+	
+	request_memory = 8GB
+	# need space for the container (3GB) as well
+	request_disk = 10GB
+	request_cpus = 1
+	request_gpus = 1
+	
+	# Use the CHTC recommended AF3 memory requirement based on the number of tokens
+	gpus_minimum_memory = $(AF3_vRAM) GB
+	
+	# short jobs 4-6 hours so it is okay to use is_resumable
+	+GPUJobLength = "short"
+	+WantGPULab = true
+	+is_resumable = true
+	want_ospool = true
+	
+	+is_alphafold3 = true
+	
+	# Use --user-specified-alphafold-options to pass any extra options to AlphaFold3, such as
+	# arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process) --user-specified-alphafold-options "--buckets 5982"
+	arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process)
+	
+	queue my_directory,AF3_vRAM from list_of_af3_inference_jobs.txt
    ```
 
     > [!IMPORTANT]  
