@@ -17,6 +17,7 @@ transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).
 
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
+keep_claim_idle = 1800
 
 # We need this to transfer the databases to the execute node
 Requirements = (Target.HasCHTCStaging == true) && (TARGET.HasAlphafold3 == true)
