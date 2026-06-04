@@ -68,12 +68,15 @@ CACHE_PREFERRED_SOURCES=""
 CACHE_API_BASE_URL="https://149.165.170.71.sslip.io"
 CACHE_DB_VERSION="AlphaFold Monomer v2.0 pipeline 2025-08-01T00:00:00Z"
 # Per-file upload retries (after the first attempt) when contributing a3m files.
-CACHE_UPLOAD_RETRIES=5
+CACHE_UPLOAD_RETRIES=20
 
 # MSA parallelism defaults.
 # Default model: 1 CPU per HMMER worker, with workers set from PYTHON_CPU_COUNT.
 AF3_MSA_CPUS_PER_WORKER=1
 AF3_MSA_WORKERS="${PYTHON_CPU_COUNT:-1}"
+
+# Default: PYTHON_CPU_COUNT if set, otherwise 8.
+AF3_HMMSEARCH_N_CPU="${PYTHON_CPU_COUNT:-8}"
 
 # Check for pre-staged Alphafold3 database
 if [ -f .machine.ad ]; then
@@ -212,6 +215,12 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+     --hmmsearch_n_cpu)
+      AF3_HMMSEARCH_N_CPU="$2"
+      printinfo "Setting AF3_HMMSEARCH_N_CPU : ${AF3_HMMSEARCH_N_CPU} -- Number of CPUs for HMMSearch"
+      shift
+      shift
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -309,6 +318,14 @@ if (( AF3_ESTIMATED_MSA_CPU_USE == 1 )); then
   echo "${AF3_SINGLE_CORE_WARNING}"
   echo "${AF3_SINGLE_CORE_WARNING}" >&2
 fi
+
+[[ "$AF3_HMMSEARCH_N_CPU" =~ ^[1-9][0-9]*$ ]] || {
+  printerr "--hmmsearch_n_cpu must be a positive integer. Got: ${AF3_HMMSEARCH_N_CPU}"
+  exit 2
+}
+
+printinfo "AF3_HMMSEARCH_N_CPU     : ${AF3_HMMSEARCH_N_CPU}"
+
 
 ## copy the container if we are going to run commands inside it
 IMG_EXE_CMD="" # default is to not pipe commands through container
@@ -432,6 +449,7 @@ else # implies that we are already in the container
        --jackhmmer_n_workers="${AF3_MSA_WORKERS}"  \
        --nhmmer_n_cpu="${AF3_MSA_CPUS_PER_WORKER}" \
        --nhmmer_n_workers="${AF3_MSA_WORKERS}" \
+       --hmmsearch_n_cpu="${AF3_HMMSEARCH_N_CPU}" \
        ${USER_SPECIFIED_AF3_OPTIONS:-} \
     || exitcode=$?
   popd # back to execution directory
