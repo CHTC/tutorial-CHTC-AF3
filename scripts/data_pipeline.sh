@@ -55,10 +55,28 @@ EXTRACTED_DATABASE_PATH=""
 
 USER_SPECIFIED_AF3_OPTIONS=""
 
+# MSA cache (af3-cache) lookup settings. Caching is opt-in: the lookup step
+# runs only when --use-cached-msa is passed, and the job otherwise runs
+# exactly as before.
+USE_CACHED_MSA=0
+CACHE_API_KEY=""
+CACHE_API_URL="https://149.165.170.71.sslip.io/v1/query"
+CACHE_PREFERRED_SOURCES=""
+
+# MSA cache write-back (contribution) settings. When --cache_api_key is set,
+# de-novo alignments are contributed back to the cache after a successful run.
+CACHE_API_BASE_URL="https://149.165.170.71.sslip.io"
+CACHE_DB_VERSION="AlphaFold Monomer v2.0 pipeline 2025-08-01T00:00:00Z"
+# Per-file upload retries (after the first attempt) when contributing a3m files.
+CACHE_UPLOAD_RETRIES=20
+
 # MSA parallelism defaults.
 # Default model: 1 CPU per HMMER worker, with workers set from PYTHON_CPU_COUNT.
 AF3_MSA_CPUS_PER_WORKER=1
 AF3_MSA_WORKERS="${PYTHON_CPU_COUNT:-1}"
+
+# Default: PYTHON_CPU_COUNT if set, otherwise 8.
+AF3_HMMSEARCH_N_CPU="${PYTHON_CPU_COUNT:-8}"
 
 # Check for pre-staged Alphafold3 database
 if [ -f .machine.ad ]; then
@@ -156,6 +174,53 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+     --use-cached-msa)
+      USE_CACHED_MSA=1
+      printinfo "MSA cache lookup enabled (--use-cached-msa)"
+      shift # past argument
+      ;;
+     -k|--cache_api_key)
+      CACHE_API_KEY="$2"
+      printinfo "Cache API key supplied"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_api_url)
+      CACHE_API_URL="$2"
+      printinfo "Setting CACHE_API_URL : ${CACHE_API_URL}"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_preferred_sources)
+      CACHE_PREFERRED_SOURCES="$2"
+      printinfo "Setting CACHE_PREFERRED_SOURCES : ${CACHE_PREFERRED_SOURCES}"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_api_base_url)
+      CACHE_API_BASE_URL="$2"
+      printinfo "Setting CACHE_API_BASE_URL : ${CACHE_API_BASE_URL}"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_db_version)
+      CACHE_DB_VERSION="$2"
+      printinfo "Setting CACHE_DB_VERSION : ${CACHE_DB_VERSION}"
+      shift # past argument
+      shift # past value
+      ;;
+     --cache_upload_retries)
+      CACHE_UPLOAD_RETRIES="$2"
+      printinfo "Setting CACHE_UPLOAD_RETRIES : ${CACHE_UPLOAD_RETRIES}"
+      shift # past argument
+      shift # past value
+      ;;
+     --hmmsearch_n_cpu)
+      AF3_HMMSEARCH_N_CPU="$2"
+      printinfo "Setting AF3_HMMSEARCH_N_CPU : ${AF3_HMMSEARCH_N_CPU} -- Number of CPUs for HMMSearch"
+      shift
+      shift
+      ;;
     -*|--*)
       echo "Unknown option $1"
       exit 1
@@ -197,6 +262,39 @@ else
   exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# MSA cache lookup (opt-in). Before running the expensive de-novo MSA search,
+# query the af3-cache for each protein query sequence and, on a preferred-
+# source hit, fold the cached unpaired MSA into the job's input JSON so AF3
+# skips the search for that chain. Best-effort: it never aborts the job.
+# ---------------------------------------------------------------------------
+if [[ "${USE_CACHED_MSA}" -ne 1 ]]; then
+  printinfo "MSA cache lookup not requested (pass --use-cached-msa to enable) — running de-novo alignment"
+elif [[ -z "${CACHE_API_KEY}" ]]; then
+  printerr "--use-cached-msa was passed but no --cache_api_key supplied — skipping MSA cache lookup (de-novo alignment)"
+elif ! command -v cache_lookup.sh >/dev/null 2>&1; then
+  printerr "cache_lookup.sh not found on PATH (expected in container at /opt/af3-caching/cache_lookup.sh) — skipping MSA cache lookup"
+else
+  CACHE_VERBOSITY=""
+  if [[ ${VERBOSE_LEVEL} -ge 2 ]]; then
+    CACHE_VERBOSITY="--verbose"
+  elif [[ ${VERBOSE_LEVEL} -le 0 ]]; then
+    CACHE_VERBOSITY="--silent"
+  fi
+  for cache_input in "${WORK_INPUT_DIR}"/*.json; do
+    [[ -e "${cache_input}" ]] || continue
+    printinfo "Querying MSA cache for $(basename "${cache_input}")"
+    cache_lookup.sh \
+      --input_json "${cache_input}" \
+      --api_key "${CACHE_API_KEY}" \
+      --api_url "${CACHE_API_URL}" \
+      --preferred_sources "${CACHE_PREFERRED_SOURCES}" \
+      --work_dir "${WORK_DIR}" \
+      ${CACHE_VERBOSITY} \
+      || printerr "cache_lookup.sh exited non-zero for ${cache_input} — continuing with de-novo alignment"
+  done
+fi
+
 # Validate MSA parallelism settings after CLI overrides.
 [[ "$AF3_MSA_CPUS_PER_WORKER" =~ ^[1-9][0-9]*$ ]] || {
   printerr "--msa_cpus_per_worker must be a positive integer. Got: ${AF3_MSA_CPUS_PER_WORKER}"
@@ -220,6 +318,14 @@ if (( AF3_ESTIMATED_MSA_CPU_USE == 1 )); then
   echo "${AF3_SINGLE_CORE_WARNING}"
   echo "${AF3_SINGLE_CORE_WARNING}" >&2
 fi
+
+[[ "$AF3_HMMSEARCH_N_CPU" =~ ^[1-9][0-9]*$ ]] || {
+  printerr "--hmmsearch_n_cpu must be a positive integer. Got: ${AF3_HMMSEARCH_N_CPU}"
+  exit 2
+}
+
+printinfo "AF3_HMMSEARCH_N_CPU     : ${AF3_HMMSEARCH_N_CPU}"
+
 
 ## copy the container if we are going to run commands inside it
 IMG_EXE_CMD="" # default is to not pipe commands through container
@@ -343,6 +449,7 @@ else # implies that we are already in the container
        --jackhmmer_n_workers="${AF3_MSA_WORKERS}"  \
        --nhmmer_n_cpu="${AF3_MSA_CPUS_PER_WORKER}" \
        --nhmmer_n_workers="${AF3_MSA_WORKERS}" \
+       --hmmsearch_n_cpu="${AF3_HMMSEARCH_N_CPU}" \
        ${USER_SPECIFIED_AF3_OPTIONS:-} \
     || exitcode=$?
   popd # back to execution directory
@@ -352,6 +459,44 @@ fi
 if (( exitcode != 0 )); then
     printerr "Alphafold3 FAILED with exit code ${exitcode}"
     exit $exitcode
+fi
+
+# ---------------------------------------------------------------------------
+# MSA cache write-back (auto when --cache_api_key is set). AlphaFold3 succeeded,
+# so contribute every de-novo protein alignment back to the af3-cache. The
+# separate cache_upload.sh diffs the post-lookup inputs against the AF3 output
+# *_data.json, uploads each recomputed a3m with a scoped Pelican write token,
+# and confirms with the server. Best-effort: it never aborts the job.
+# ---------------------------------------------------------------------------
+if [[ -z "${CACHE_API_KEY}" ]]; then
+  printverbose "No cache API key supplied — not contributing alignments to the cache"
+elif ! command -v cache_upload.sh >/dev/null 2>&1; then
+  printerr "cache_upload.sh not found on PATH (expected in container at /opt/af3-caching/cache_upload.sh) — skipping MSA cache contribution"
+else
+  # requester = RemoteOwner from the HTCondor machine ad (audit only)
+  MACHINE_AD="${_CONDOR_MACHINE_AD:-.machine.ad}"
+  CACHE_REQUESTER=""
+  if [[ -f "${MACHINE_AD}" ]]; then
+    CACHE_REQUESTER="$(grep -E '^[[:space:]]*RemoteOwner[[:space:]]*=' "${MACHINE_AD}" | head -1 | sed -E 's/.*"([^"]*)".*/\1/' || true)"
+  fi
+  CACHE_VERBOSITY=""
+  if [[ ${VERBOSE_LEVEL} -ge 2 ]]; then
+    CACHE_VERBOSITY="--verbose"
+  elif [[ ${VERBOSE_LEVEL} -le 0 ]]; then
+    CACHE_VERBOSITY="--silent"
+  fi
+  printinfo "Contributing de-novo alignments to the MSA cache (requester: ${CACHE_REQUESTER:-unknown})"
+  cache_upload.sh \
+    --af_input_dir "${WORK_INPUT_DIR}" \
+    --af_output_dir "${WORK_DIR}/af_output" \
+    --api_key "${CACHE_API_KEY}" \
+    --api_base_url "${CACHE_API_BASE_URL}" \
+    --db_version "${CACHE_DB_VERSION}" \
+    --requester "${CACHE_REQUESTER}" \
+    --upload_retries "${CACHE_UPLOAD_RETRIES}" \
+    --work_dir "${WORK_DIR}" \
+    ${CACHE_VERBOSITY} \
+    || printerr "cache_upload.sh exited non-zero — alignments may not have been contributed"
 fi
 
 printverbose "Finished running Alphafold3 data pipeline. Packing up output dir"
