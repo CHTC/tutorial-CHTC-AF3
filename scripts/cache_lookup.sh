@@ -26,7 +26,7 @@ function printverbose() {
 
 # ---- defaults ----
 INPUT_JSON=""
-API_KEY="a66d4cd10c1cadc6cc9a6ae6e8eb4fe2f7bdc924fd1904a535dd138282dedd16"
+API_KEY=""
 API_URL="https://149.165.170.71.sslip.io/v1/query"
 PREFERRED_SOURCES="OSG-Generated, GDM, Nvidia, Viro3D, BFVD, AllTheBacteria, Kinetoplastid, Community Contributed - Cached"
 WORK_DIR="."
