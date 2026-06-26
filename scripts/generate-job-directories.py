@@ -9,6 +9,8 @@ Where molecule types can be:
     - protein
     - rna
     - dna
+    - smiles    (ligand given as a SMILES string in molN_seq)
+    - ccdCodes   (ligand given as CCD code(s) in molN_seq, "|"-separated for multiple)
     (extendable)
 
 Each output job directory is placed under:
@@ -32,8 +34,11 @@ import argparse
 # Build a minimal AF3 JSON block for a single molecule.
 # Supports:
 #   - standard protein, RNA, or DNA sequences
+#   - ligands specified by a SMILES string (type "smiles")
+#   - ligands specified by CCD code(s) (type "ccdCodes")
 #   - single chain ("A") or multichain ("A|C|D") ➜ ["A", "C", "D"]
 def build_molecule_block(molecule_type, chain_id, sequence, apply_mods=True):
+    molecule_type = molecule_type.strip()
     sequence = sequence.strip()
 
     # Convert chains: "A|B|C" → ["A", "B", "C"]
@@ -42,7 +47,18 @@ def build_molecule_block(molecule_type, chain_id, sequence, apply_mods=True):
     else:
         chains = chain_id.strip()  # single-chain mode
 
-    return {molecule_type.strip(): {"id": chains, "sequence": sequence}}
+    # Ligand specified as a SMILES string:
+    #   { "ligand": { "id": "K", "smiles": "CC(=O)OC1C[NH+]2CCC1CC2" } }
+    if molecule_type == "smiles":
+        return {"ligand": {"id": chains, "smiles": sequence}}
+
+    # Ligand specified by CCD code(s). Multiple codes can be given with "|":
+    #   { "ligand": { "id": ["G", "H", "I"], "ccdCodes": ["ATP"] } }
+    if molecule_type == "ccdCodes":
+        ccd_codes = [c.strip() for c in sequence.split("|") if c.strip()]
+        return {"ligand": {"id": chains, "ccdCodes": ccd_codes}}
+
+    return {molecule_type: {"id": chains, "sequence": sequence}}
 
 
 def parse_molecules(row_dict):
@@ -102,6 +118,8 @@ def main():
             - protein
             - rna
             - dna
+            - smiles    (ligand given as a SMILES string in molN_seq)
+            - ccdCodes   (ligand given as CCD code(s) in molN_seq, "|"-separated for multiple)
             (extendable)
 
         Each output job directory is placed under:
@@ -171,7 +189,7 @@ def main():
                 "sequences": molecules,
                 "modelSeeds": args.seed,
                 "dialect": "alphafold3",
-                "version": 1,
+                "version": 3,
             }
 
             json_path = os.path.join(data_inputs, "fold_input.json")
@@ -182,13 +200,14 @@ def main():
             total_tokens = 0
             for mol in molecules:
                 mol_type = list(mol.keys())[0]
-                seq = mol[mol_type]["sequence"]
-                chains = mol[mol_type]["id"]
+                block = mol[mol_type]
+                chains = block["id"]
+                n_chains = len(chains) if isinstance(chains, list) else 1
 
-                if isinstance(chains, list):
-                    total_tokens += len(seq) * len(chains)
-                else:
-                    total_tokens += len(seq)
+                # Ligand blocks (smiles/ccdCodes) have no "sequence" and
+                # contribute negligibly to the token-based vRAM estimate.
+                if "sequence" in block:
+                    total_tokens += len(block["sequence"]) * n_chains
 
             estimated_vram_gb = max(0, 0.01796 * total_tokens - 4.130)
 

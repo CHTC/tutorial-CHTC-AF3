@@ -319,28 +319,70 @@ Our data manifest file (`input.csv`) comes with four scenarios already. If you w
 
 <details><summary>Click to expand: Building Your Own Manifest File</summary>
 
-1. Setup a CSV manifest containing your protein sequences in FASTA format in the `data/protein_sequences/` directory. The CSV should follow this format: 
+1. Setup a CSV manifest containing your protein sequences in FASTA format in the `data/protein_sequences/` directory. Each molecule is described by a triplet of columns — `molN_type`, `molN_chain`, `molN_seq` — so the header should follow this structure: 
 
     ```bash
-    job_name,molecule_type,chain_id,sequence
+    job_name, mol1_type, mol1_chain, mol1_seq, mol2_type, mol2_chain, mol2_seq, ...
+    ```
+
+    For a single molecule, the CSV looks like this:
+
+    ```bash
+    job_name,mol1_type,mol1_chain,mol1_seq
     ProteinA,protein,A,MKTAYIAKQRQIS
     ProteinB,protein,A,GAVLILALLAVF
     ```
     
-    If you plan to model multiple molecules, simply add more columns to the CSV manifest. For example, if you have two proteins complex or a protein and a DNA molecule, your CSV might look like this:
+    If you plan to model multiple molecules, simply add more `molN_*` column triplets to the CSV manifest. For example, if you have two proteins complex or a protein and a DNA molecule, your CSV might look like this:
     
     ```bash
-    job_name,molecule_type,chain_id,sequence
+    job_name,mol1_type,mol1_chain,mol1_seq,mol2_type,mol2_chain,mol2_seq
     ProteinA,protein,A,MKTAYIAKQRQIS,protein,B,MKTAYIAKQRQIS
     ProteinB,protein,A,GAVLILALLAVF,dna,B,GCGTACGTAGCTAGC
     ```
     
-    You can also model multimeric complexes by including multiple chain_ids in the CSV manifest. Write each chain_id separated by a pipe character `(|)`. For example, if you have a trimeric protein complex, your CSV might look like this:
+    You can also model multimeric complexes by including multiple chain IDs in the `molN_chain` field. Write each chain ID separated by a pipe character `(|)`. For example, if you have a trimeric protein complex, your CSV might look like this:
     
     ```bash
-    job_name,molecule_type,chain_id,sequence
+    job_name,mol1_type,mol1_chain,mol1_seq
     ProteinComplex,protein,A|B|C,MKTAYIAKQRQIS
     ```
+
+    **Adding ligands (SMILES or CCD codes)**
+
+    In addition to `protein`, `rna`, and `dna`, the `molN_type` field accepts two ligand types. For both, the ligand value goes in the `molN_seq` column.
+
+    - `smiles` — the ligand is given as a SMILES string. The script writes it into the JSON as a quoted `smiles` value. If your SMILES contains commas, wrap the field in double quotes so it stays a single CSV column:
+
+        ```bash
+        job_name,mol1_type,mol1_chain,mol1_seq,mol2_type,mol2_chain,mol2_seq
+        ProteinLigand,protein,A,MKTAYIAKQRQIS,smiles,K,"CC(C1=CC=C(C=C1)O)(C2=CC=C(C=C2)O)CCC(NC)=O"
+        ```
+
+        produces:
+
+        ```json
+        {
+          "ligand": { "id": "K", "smiles": "CC(C1=CC=C(C=C1)O)(C2=CC=C(C=C2)O)CCC(NC)=O" }
+        }
+        ```
+
+    - `ccdCodes` — the ligand is given by one or more CCD codes. The script writes them into the JSON as a list under `ccdCodes`. List multiple codes separated by a pipe character `(|)`:
+
+        ```bash
+        job_name,mol1_type,mol1_chain,mol1_seq,mol2_type,mol2_chain,mol2_seq
+        ProteinLigand,protein,A,MKTAYIAKQRQIS,ccdCodes,G|H|I,ATP
+        ```
+
+        produces:
+
+        ```json
+        {
+          "ligand": { "id": ["G", "H", "I"], "ccdCodes": ["ATP"] }
+        }
+        ```
+
+    As with sequences, you can give a ligand multiple chain IDs by separating them with a pipe character `(|)` in the `molN_chain` field.
 </details>
 
 #### Preparing Your _List of (AlphaFold) Jobs_
