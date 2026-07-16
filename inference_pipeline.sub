@@ -1,13 +1,11 @@
-# CHTC maintained container for AlphaFold3 as of December 2025
-# Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
-#container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
+# OSPool maintained container for AlphaFold3 as of December 2025
 container_image = osdf:///osg-public/containers/alphafold3-custom-v6.sif
 
 executable = scripts/inference_pipeline.sh
 
 environment = "myjobdir=$(my_directory)"
 
-MODEL_WEIGHTS_PATH = /staging/<n>/<NetID>/tutorial-CHTC-AF3/af3.bin.zst
+MODEL_WEIGHTS_PATH = /ospool/ap40/data/<user.name>/tutorial-OSPool-AF3/af3.bin.zst
 
 log = ./logs/inference_pipeline.log
 output = inference_pipeline_$(Cluster)_$(Process).out
@@ -16,7 +14,7 @@ error  = inference_pipeline_$(Cluster)_$(Process).err
 initialdir = AF3_Jobs/$(my_directory)
 
 # transfer all files in the inference_inputs directory
-transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
+transfer_input_files = inference_inputs/, osdf:///$(MODEL_WEIGHTS_PATH)
 
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
@@ -29,12 +27,7 @@ request_gpus = 1
 
 # Use the CHTC recommended AF3 memory requirement based on the number of tokens
 gpus_minimum_memory = $(AF3_vRAM) GB
-
-# short jobs 4-6 hours so it is okay to use is_resumable
-+GPUJobLength = "short"
-+WantGPULab = true
-+is_resumable = true
-want_ospool = true
++JobDurationCategory = "Medium"
 
 +is_alphafold3 = true
 

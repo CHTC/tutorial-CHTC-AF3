@@ -20,7 +20,7 @@ when_to_transfer_output = ON_EXIT
 keep_claim_idle = 1800
 
 # We need this to transfer the databases to the execute node
-Requirements = (Target.HasCHTCStaging == true) && (TARGET.HasAlphafold3 == true)
+Requirements = (TARGET.HasAlphafold3 == true)
 
 # We use this condition for internal logic and reporting, please do not remove.
 +is_alphafold3 = true
@@ -33,10 +33,11 @@ if defined USE_SMALL_DB
   arguments = --smalldb --work_dir_ext $(Cluster)_$(Process) --verbose
 else
   # full requirements
-  request_memory = 24GB
+  request_memory = 2 GB
+  retry_request_memory = 8GB, 16GB, 32GB, 64GB
   # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
   request_disk = 700000000 - ( (TARGET.HasAlphafold3?: 1) * 650000000)
-  request_cpus = 8
+  request_cpus = 4
   arguments = "--work_dir_ext $(Cluster)_$(Process) --cache_api_key <API_KEY> --use-cached-msa --msa_cpus_per_worker 1 --cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'"
 endif
 
