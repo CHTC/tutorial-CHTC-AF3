@@ -536,7 +536,7 @@ The submit files will attempt to match to machines that are advertising the `Has
 The included script (`data_pipeline.sh`) will also check the matched EP's information, after the job has matched, to see if the `HasAlphafold3` attribute is set to `true`. If it is, the job will request significantly less disk space, as the databases are already present on the machine. If the attribute is not set to `true`, the submit file will request more disk space to accommodate the database transfer. Lower disk requests can lead to increased number of running jobs, as the scheduler has more flexibility in matching jobs to machines.
 
 > [!TIP]  
-> AlphaFold3 jobs can be resource-intensive, especially with highly conserved query sequences. Conserved sequences can generate very deep alignments, which may require significantly more memory. If you encounter out-of-memory errors during job execution, consider increasing the `request_memory` attribute in your submit file. You can also utilize the `retry_request_memory = <memory/expression>` command in your submit file to request a retry if the job holds for an out-of-memory error. For more information on how to use `retry_request_memory`, visit our [Request variable memory](https://chtc.cs.wisc.edu/uw-research-computing/variable-memory#use-retry_request_memory) documentation page.
+> AlphaFold3 jobs can be resource-intensive, especially with highly conserved query sequences. Conserved sequences can generate very deep alignments, which may require significantly more memory. If you encounter out-of-memory errors during job execution, consider increasing the `request_memory` attribute in your submit file. You can also utilize the `retry_request_memory = <memory/expression>` command in your submit file to request a retry if the job holds for an out-of-memory error. For more information on how to use `retry_request_memory`, visit our [Request variable memory](https://portal.osg-htc.org/documentation/htc_workloads/specific_resource/retry-request-memory/) documentation page.
 
 ### Submit Your AlphaFold3 Jobs - GPU-Accelerated Structural Prediction (Step 2)
 
@@ -554,48 +554,47 @@ Once the data-pipeline jobs have finished generating alignments and features, th
 3. Create your submit file `inference_pipeline.sub`. You will need to edit the `MODEL_WEIGHT_PATH` **and** `gpus_minimum_memory`. You can specify additional parameters for the executable in the `arguments` attribute as needed. 
 
     ```bash
-	   # OSPool maintained container for AlphaFold3 as of December 2025
-	container_image = osdf:///osg-public/containers/alphafold3-custom-v6.sif
-	
-	executable = scripts/inference_pipeline.sh
-	
-	environment = "myjobdir=$(my_directory)"
-	
-	MODEL_WEIGHTS_PATH = /ospool/ap##/data/tutorial-OSPool-AF3/af3.bin.zst
-	
-	log = ./logs/inference_pipeline.log
-	output = inference_pipeline_$(Cluster)_$(Process).out
-	error  = inference_pipeline_$(Cluster)_$(Process).err
-	
-	initialdir = AF3_Jobs/$(my_directory)
-	
-	# transfer all files in the inference_inputs directory
-	transfer_input_files = inference_inputs/, osdf:///$(MODEL_WEIGHTS_PATH)
-	
-	should_transfer_files = YES
-	when_to_transfer_output = ON_EXIT
-	
-	request_memory = 8GB
-	# need space for the container (3GB) as well
-	request_disk = 10GB
-	request_cpus = 1
-	request_gpus = 1
-	
-	# Use the OSPool recommended AF3 memory requirement based on the number of tokens
-	gpus_minimum_memory = $(AF3_vRAM) GB
-	
-   +JobDurationCategory = "Medium"
-	+is_alphafold3 = true
-	
-	# Use --user-specified-alphafold-options to pass any extra options to AlphaFold3, such as
-	# arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process) --user-specified-alphafold-options "--buckets 5982"
-	arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process)
-	
-	queue my_directory,AF3_vRAM from list_of_af3_inference_jobs.txt
+    # OSPool maintained container for AlphaFold3 as of December 2025
+    container_image = osdf:///osg-public/containers/alphafold3-custom-v6.sif
+    
+    executable = scripts/inference_pipeline.sh
+    
+    environment = "myjobdir=$(my_directory)"
+    
+    MODEL_WEIGHTS_PATH = /ospool/ap40/data/<user.name>/tutorial-OSPool-AF3/af3.bin.zst
+    
+    log = ./logs/inference_pipeline.log
+    output = inference_pipeline_$(Cluster)_$(Process).out
+    error  = inference_pipeline_$(Cluster)_$(Process).err
+    
+    initialdir = AF3_Jobs/$(my_directory)
+    
+    # transfer all files in the inference_inputs directory
+    transfer_input_files = inference_inputs/, osdf:///$(MODEL_WEIGHTS_PATH)
+    
+    should_transfer_files = YES
+    when_to_transfer_output = ON_EXIT
+    
+    request_memory = 8GB
+    # need space for the container (3GB) as well
+    request_disk = 10GB
+    request_cpus = 1
+    request_gpus = 1
+    
+    # Use the CHTC recommended AF3 memory requirement based on the number of tokens
+    gpus_minimum_memory = $(AF3_vRAM) GB
+    
+    +is_alphafold3 = true
+    
+    # Use --user-specified-alphafold-options to pass any extra options to AlphaFold3, such as
+    # arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process) --user-specified-alphafold-options "--buckets 5982"
+    arguments = --model_param_file af3.bin.zst --work_dir_ext $(Cluster)_$(Process)
+    
+    queue my_directory,AF3_vRAM from list_of_af3_inference_jobs.txt
    ```
 
     > [!IMPORTANT]  
-    > Make sure to update the `MODEL_WEIGHTS_PATH` variable to point to the location of your `af3.bin.zst` model weights file in your CHTC staging directory. This path should be the same as where you uploaded your model weights in step 4 of the [Clone the Tutorial Repository](#clone-the-tutorial-repository) section. For example, if your CHTC netID is `bbdager`, and you uploaded your model weights to `/staging/bbdager/tutorial-OSPool-AF3/af3.bin.zst`, then you should set `MODEL_WEIGHTS_PATH = /staging/bbdager/tutorial-OSPool-AF3/af3.bin.zst` in your submit file.
+    > Make sure to update the `MODEL_WEIGHTS_PATH` variable to point to the location of your `af3.bin.zst` model weights file in your `/ospool/ap##/data/<username>/` directory. This path should be the same as where you uploaded your model weights in step 4 of the [Clone the Tutorial Repository](#clone-the-tutorial-repository) section. For example, if your OSPool username is `jane.doe`, and you uploaded your model weights to `/ospool/ap40/data/jane.doe/tutorial-OSPool-AF3/af3.bin.zst`, then you should set `MODEL_WEIGHTS_PATH = /ospool/ap40/data/jane.doe/tutorial-OSPool-AF3/af3.bin.zst` in your submit file.
 
 This submit file will read the contents of `list_of_af3_jobs.txt`, iterate through each line, and assign the value of each line to the variable `$(my_directory)`. This allows you to programmatically submit _N_ jobs, where _N_ equals the number of AlphaFold3 job directories you previously created. Each job processes one AlphaFold3 job directory and uses the CHTC-maintained AlphaFold3 container image, which is transferred to the Execution Point (EP) by HTCondor.
 
@@ -613,11 +612,13 @@ The GPU-accelerated inference jobs do not require the full AlphaFold3 databases,
    condor_watch_q
    ```
 
-This stage **does not** require the full AlphaFold3 databases, only the model weights and the feature tarballs produced in Step 1. As a result, you can run these jobs on a wider range of GPU Execute Points without worrying about database availability, including GPU EPs outside of CHTC on the OSPool. To learn more about using additional capacity beyond CHTC, visit our guide on [Scale Beyond Local HTC Capacity](https://chtc.cs.wisc.edu/uw-research-computing/scaling-htc). 
+This stage **does not** require the full AlphaFold3 databases, only the model weights and the feature tarballs produced in Step 1. As a result, you can run these jobs on a wider range of GPU Execute Points without worrying about database availability.
 
 #### Choosing Appropriate GPU Resources
 
-Beyond the model weights, your AlphaFold3 jobs may require different resource requests depending on the size and complexity of the proteins you are modeling. AlphaFold3 uses the concept of a "token" to represent the complexity of your protein. **You can generally estimate number of tokens as approximately equivalent to 1.2x the sequence length.** For example, a protein with 1000 amino acids would have roughly 1200 tokens. If you are modeling multimeric complexes, you will need to account for the combined sequence lengths of all chains. For structures that include nucleic acids (DNA/RNA), each nucleotide is considered one token. Post-translational modifications (PTMs) and additional ligands may also increase token counts, depending on the specific modifications involved. 
+If you are using our supplied `generate-job-directories.py` script to create your job directories, the script will automatically generate a `list_of_af3_inference_jobs.txt` file that contains the job names and their corresponding estimated GPU minimum memory requirements. The GPU memory requirements are based on the number of tokens in each protein sequence, which is calculated from the sequence length and any additional chains or ligands.
+
+Your AlphaFold3 jobs may require different resource requests depending on the size and complexity of the proteins you are modeling. AlphaFold3 uses the concept of a "token" to represent the complexity of your protein. **You can generally estimate number of tokens as approximately equivalent to 1.2x the sequence length.** For example, a protein with 1000 amino acids would have roughly 1200 tokens. If you are modeling multimeric complexes, you will need to account for the combined sequence lengths of all chains. For structures that include nucleic acids (DNA/RNA), each nucleotide is considered one token. Post-translational modifications (PTMs) and additional ligands may also increase token counts, depending on the specific modifications involved. 
 
 Once you know the number of "tokens" required, you can estimate how much GPU memory is needed to run your protein. As a starting point, you can refer to the following general guidelines:
 
@@ -630,10 +631,12 @@ Once you know the number of "tokens" required, you can estimate how much GPU mem
 
 Change the `gpus_minimum_memory` option in the submit file to reflect the amount of GPU memory that is needed for your protein. 
 
-For very large complexes exceeding 10k tokens, you may need to enable unified memory mode using the `--enable_unified_memory` flag in the executable script. This allows AlphaFold3 to utilize system RAM in addition to GPU memory, which can help accommodate larger models. However, it may also lead to **significantly slower performance** due to increased data transfer times between system RAM and GPU memory. You will also need to ensure that the execute node has sufficient system RAM to support unified memory mode by increasing the `request_memory` attribute in your submit file. We recommend reaching out to the CHTC Research Computing Facilitation team for assistance with very large complexes.
+[!WARNING]
+> **Support for Ultra-Large Complexes is Limited**
+> Structures with more than 10k tokens may exceed the GPU memory available on the OSPool. If your protein complex exceeds this size, you may need to consider alternative strategies, such as breaking the complex into smaller subunits or using a different modeling approach. We may also be able to guide you to other resources that can accommodate larger models. Please reach out to the  Research Computing Facilitation team for assistance with very large complexes.
 
 > [!TIP]  
-> CHTC has a number of smaller RTX series GPUs (e.g., RTX 4000, RTX 5000) with only 8-16GB of GPU memory. If your job requires less than 10GB of GPU memory, you can set `gpus_minimum_memory = 10000` in your submit file to allow your jobs to match to these smaller GPUs. This can help increase the number of available machines for your jobs, leading to faster start times.
+> The OSPool has a number of smaller RTX series GPUs (e.g., RTX 4000, RTX 5000) with only 8-16GB of GPU memory. If your job requires less than 10GB of GPU memory, you can set `gpus_minimum_memory = 10000` in your submit file to allow your jobs to match to these smaller GPUs. This can help increase the number of available machines for your jobs, leading to faster start times.
 > 
 > If your jobs require more GPU memory than is available on these smaller GPUs, you can adjust the `gpus_minimum_memory` attribute in your submit file to request machines with larger GPUs (e.g., A100, V100). For example, to request machines with at least 32GB of GPU memory, you can set `gpus_minimum_memory = 32000` in your submit file. This will help ensure that your jobs are matched to machines with sufficient GPU memory to run successfully.
 
@@ -644,10 +647,10 @@ AlphaFold3 generates a variety of output files, including predicted 3D structure
 1. Once your inference pipeline jobs have completed successfully, `exit` the Access Point SSH session and return to your local machine.:
 
     ```bash
-    [bbdager@ap2002 tutorial-OSPool-AF3]$ exit
+    [jane.doe@ap40 tutorial-OSPool-AF3]$ exit
     logout
-    Shared connection to ap2002.chtc.wisc.edu closed.
-    Bucky@MyLaptop ~ % 
+    Shared connection to ap40.osg-htc.org closed.
+    Jane@MyLaptop ~ % 
    ```
 
     **_Note:_** Notice the change in the prompt, indicating you are back on your local laptop. 
@@ -655,7 +658,7 @@ AlphaFold3 generates a variety of output files, including predicted 3D structure
 2. For each job directory, download and extract the `<job_name>.inference_pipeline.tar.gz` file to your local machine:
 
     ```bash
-    scp <netID>@ap2002.chtc.wisc.edu:~/tutorial-OSPool-AF3/AF3_Jobs/Job1_ProteinA/Job1_ProteinA.inference_pipeline.tar.gz ./
+    scp <username>@ap##.osg-htc.org:~/tutorial-OSPool-AF3/AF3_Jobs/Job1_ProteinA/Job1_ProteinA.inference_pipeline.tar.gz ./
     tar -xzvf Job1_ProteinA.inference_pipeline.tar.gz
     ```
    
@@ -669,7 +672,7 @@ AlphaFold3 generates a variety of output files, including predicted 3D structure
 
 ## Next Steps
 
-Now that you've successfully run the full AlphaFold3 two-stage workflow on the CHTC GPU capacity, you’re ready to extend this workflow to your own research projects, larger datasets, and more complex biomolecular systems. Below are recommended next steps to build on this tutorial. We **strongly recommend** reviewing the reference material section below for ways to customize this workflow for your research and for helpful tips to get the most out of CHTC capacity. 
+Now that you've successfully run the full AlphaFold3 two-stage workflow on the OSPool capacity, you’re ready to extend this workflow to your own research projects, larger datasets, and more complex biomolecular systems. Below are recommended next steps to build on this tutorial. We **strongly recommend** reviewing the reference material section below for ways to customize this workflow for your research and for helpful tips to get the most out of OSPool capacity. 
 
 🧬 Apply the Workflow to Your Own Data
 * Replace the tutorial sequences with your own proteins, RNA molecules, complexes, or mixed multimers.
@@ -682,7 +685,7 @@ Now that you've successfully run the full AlphaFold3 two-stage workflow on the C
 
 🚀 Run Larger Analyses
 Once you’re comfortable with the basics, try:
-* Large protein–RNA complexes (>10k tokens)
+* Large protein–RNA complexes (<10k tokens)
 * Multi-seed inference strategies 
 * Modeling structural evolution by comparing AF3 predictions across species 
 * Integrating AF3 predictions into:
@@ -692,8 +695,8 @@ Once you’re comfortable with the basics, try:
 * Using AF3 for structural annotation of genomes, e.g., predicting full gene families with DAGMan workflows.
 
 🧑‍💻 Get Help or Collaborate
-* Reach out to [chtc@cs.wisc.edu](mailto:chtc@cs.wisc.edu) for one-on-one help with scaling your research.
-* Attend office hours or training sessions—see the [CHTC Help Page](https://chtc.cs.wisc.edu/uw-research-computing/get-help.html) for details.
+* Reach out to [support@osg-htc.org](mailto:support@osg-htc.org) for one-on-one help with scaling your research.
+* Attend office hours or training sessions—see the [OSPool Help Page](https://portal.osg-htc.org/documentation/support_and_training/support/getting-help-from-RCFs/) for details.
 
 ## Reference Material
 
