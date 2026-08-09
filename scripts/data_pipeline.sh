@@ -75,8 +75,8 @@ CACHE_UPLOAD_RETRIES=20
 AF3_MSA_CPUS_PER_WORKER=1
 AF3_MSA_WORKERS="${PYTHON_CPU_COUNT:-1}"
 
-# Default: PYTHON_CPU_COUNT if set, otherwise 8.
-AF3_HMMSEARCH_N_CPU="${PYTHON_CPU_COUNT:-8}"
+# Default: PYTHON_CPU_COUNT if set, otherwise 1.
+AF3_HMMSEARCH_N_CPU="${PYTHON_CPU_COUNT:-1}"
 
 # Check for pre-staged Alphafold3 database
 if [ -f .machine.ad ]; then
