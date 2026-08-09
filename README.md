@@ -2,7 +2,7 @@
 
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19239059-blue)](https://doi.org/10.5281/zenodo.19239059)
 
-*Slides from the Feb. 11th training are available [here](https://docs.google.com/presentation/d/10-UUBKlYnul6KslN5slFQyCEebI6a0tyZwlucis-ynQ/edit?usp=sharing).*
+If this tutorial supports your research, please cite it as [doi.org/10.1145/3785462.3815874](https://doi.org/10.1145/3785462.3815874).
 
 ## Introduction
 
