@@ -25,9 +25,8 @@ request_disk = 10GB
 request_cpus = 1
 request_gpus = 1
 
-# Use the CHTC recommended AF3 memory requirement based on the number of tokens
+# Use the OSPool recommended AF3 memory requirement based on the number of tokens
 gpus_minimum_memory = $(AF3_vRAM) GB
-+JobDurationCategory = "Medium"
 
 +is_alphafold3 = true
 

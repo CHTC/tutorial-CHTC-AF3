@@ -1,5 +1,4 @@
-# CHTC maintained container for AlphaFold3 as of December 2025
-# Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
+# OSPool maintained container for AlphaFold3 as of December 2025
 container_image = osdf:///osg-public/containers/alphafold3-custom-v6.sif
 
 executable = scripts/data_pipeline.sh
@@ -11,15 +10,17 @@ error  = data_pipeline_$(Cluster)_$(Process).err
 initialdir = AF3_Jobs/$(my_directory)
 transfer_input_files = data_inputs/
 
-# transfer output files back to the submit node
+# transfer output files back to the access point
 transfer_output_files = data_pipeline.tar.gz
 transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
 
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
-keep_claim_idle = 1800
 
-# We need this to transfer the databases to the execute node
+# Match only to execution points that advertise a pre-staged copy of the
+# AlphaFold3 reference databases at /alphafold3. Without this, a job would have
+# to pull and extract ~650GB of databases into its own scratch space, which is
+# not a viable request on the OSPool.
 Requirements = (TARGET.HasAlphafold3 == true)
 
 # We use this condition for internal logic and reporting, please do not remove.
@@ -29,16 +30,18 @@ if defined USE_SMALL_DB
   # testing requirements
   request_memory = 8GB
   request_disk = 16GB
-  request_cpus = 4
-  arguments = --smalldb --work_dir_ext $(Cluster)_$(Process) --verbose
+  request_cpus = 2
+  transfer_input_files = data_inputs/, osdf:///osg-public/data/alphafold3_db_small.tar.gz
+  arguments = "--smalldb --work_dir_ext $(Cluster)_$(Process) --msa_cpus_per_worker 1 --msa_workers 2 --verbose"
 else
   # full requirements
   request_memory = 2 GB
   retry_request_memory = 8GB, 16GB, 32GB, 64GB
-  # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
-  request_disk = 700000000 - ( (TARGET.HasAlphafold3?: 1) * 650000000)
-  request_cpus = 4
-  arguments = "--work_dir_ext $(Cluster)_$(Process) --cache_api_key <API_KEY> --use-cached-msa --msa_cpus_per_worker 1 --cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'"
+  # The databases are already on the machine (see Requirements above), so the
+  # job only needs room for the container, its inputs, and af_output.
+  request_disk = 15GB
+  request_cpus = 2
+  arguments = "--work_dir_ext $(Cluster)_$(Process) --use-cached-msa --cache_api_key <API_KEY> --cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'"
 endif
 
 queue my_directory from list_of_af3_jobs.txt
