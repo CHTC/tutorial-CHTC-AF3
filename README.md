@@ -486,7 +486,11 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
     queue my_directory from list_of_af3_jobs.txt
    ```
 
-In the full-database example above, each data-pipeline job requests 8 CPUs and passes `--msa_cpus_per_worker 1` to the wrapper, so each MSA search uses a single CPU. For maximum opportunistic matchability, you can instead request one CPU and run with `--msa_workers 1`; this single-core mode is slower per job but may allows signficiantly more jobs to run at once. The `--cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'` specifies a list of opt-in sources you would like to pull pre-computed alignment from. Learn more at [https://osg-htc.org/services/osdf/alphafold](https://osg-htc.org/services/osdf/alphafold). It is important that you include an API Key, in order to use the API please contact us at chtc@cs.wisc.edu and request a key. 
+In the full-database example above, each data-pipeline job requests 8 CPUs and passes `--msa_cpus_per_worker 1` to the wrapper, so each MSA search uses a single CPU. For maximum opportunistic matchability, you can instead request one CPU and run with `--msa_workers 1`; this single-core mode is slower per job but may allows signficiantly more jobs to run at once. The `--cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'` specifies a list of opt-in sources you would like to pull pre-computed alignment from. Learn more at [https://osg-htc.org/services/osdf/alphafold](https://osg-htc.org/services/osdf/alphafold). 
+
+[!WARNING]
+> **You must replace `<API_KEY>` with your actual API key** 
+> The API key is required to access the AlphaFold3 Alignment Library and retrieve cached MSAs. If you do not have an API key, please contact the Research Computing Facilitation team at [support@osg-htc.org](mailto:support@osg-htc.org) with the subject "AlphaFold3 Library API Key Request".
 
 This submit file will read the contents of `list_of_af3_jobs.txt`, iterate through each line, and assign the value of each line to the variable `$(my_directory)`. This allows you to programmatically submit _N_ jobs, where _N_ equals the number of AlphaFold3 job directories you previously created. Each job processes one AlphaFold3 job directory and uses the CHTC-maintained AlphaFold3 container image, which is transferred to the Execution Point (EP) by HTCondor.
 
@@ -521,9 +525,9 @@ The best CPU setting depends on whether you want shorter runtimes for each indiv
 
 Do not set `--msa_cpus_per_worker × --msa_workers` higher than `request_cpus`. For example, if `request_cpus = 4`, avoid `--msa_cpus_per_worker 4 --msa_workers 4`, because that can create roughly 16 CPUs worth of MSA demand inside a 4-CPU allocation.
 
-#### AlphaFold3 Databases on CHTC
+#### AlphaFold3 Databases on the OSPool
 
-This data stage requires the AlphaFold3 reference databases. CHTC maintains a full, pre-extracted copy of the AlphaFold3 reference databases on a subset of execute points. When your data-pipeline jobs match to one of these machines, they can use the local /alphafold3 directory directly, avoiding the costly transfer and extraction of several hundred gigabytes of database files. This dramatically reduces startup time, disk requirements, and overall job runtime. If a job lands on a machine without pre-staged databases, the script automatically falls back to unpacking the databases in the job’s scratch space, ensuring that every job can run regardless of where it matches.
+This data stage requires the AlphaFold3 reference databases. Several contributing sites on the OSPool maintain a full, pre-extracted copy of the AlphaFold3 reference databases on a subset of execute points. When your data-pipeline jobs match to one of these machines, they can use the local /alphafold3 directory directly, avoiding the costly transfer and extraction of several hundred gigabytes of database files. This dramatically reduces startup time, disk requirements, and overall job runtime. 
 
 You can target the pre-staged database nodes specifically by adding the requirement command `requirements = (HasAlphafold3 == true)` to your submit file, as shown in the example submit file above. 
 
