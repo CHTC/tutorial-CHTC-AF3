@@ -1,4 +1,4 @@
-# Predicting Protein Structures with AlphaFold3 on the CHTC GPU Capacity
+# Predicting Protein Structures with AlphaFold3 on the OSPool
 
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19239059-blue)](https://doi.org/10.5281/zenodo.19239059)
 
@@ -8,7 +8,7 @@
 
 A two-phase workflow: alignment generation → structure prediction
 
-AlphaFold3 (AF3) predicts atomic-resolution biomolecular structures for proteins, nucleic acids, and complexes. This guide walks you through running AF3 on CHTC: organize your project, prepare input JSONs, submit HTCondor jobs, and transfer inputs/results using OSDF.
+AlphaFold3 (AF3) predicts atomic-resolution biomolecular structures for proteins, nucleic acids, and complexes. This guide walks you through running AF3 on the OSPool: organize your project, prepare input JSONs, submit HTCondor jobs, and transfer inputs/results using OSDF.
 
 AlphaFold3 workloads in high-throughput environments are best organized into two separate job types:
 * **Step 1: Generating the Alignments (Data-Only Pipeline)**
@@ -21,11 +21,11 @@ AlphaFold3 workloads in high-throughput environments are best organized into two
   * Run the AF3 diffusion model 
   * Produce PDB models, ranking, trajectories, and metrics
 
-This tutorial teaches you how to run AlphaFold3 on CHTC using a two-phase workflow and scalable, high-throughput compute practices. You will learn how to:
+This tutorial teaches you how to run AlphaFold3 on the OSPool using a two-phase workflow and scalable, high-throughput compute practices. You will learn how to:
 
-* **Understand the overall workflow of AlphaFold3 on CHTC**, including how the data-generation and inference stages map to CPU and GPU resources. 
+* **Understand the overall workflow of AlphaFold3 on the OSPool**, including how the data-generation and inference stages map to CPU and GPU resources. 
 * **Design, organize, and manage large-scale AF3 workloads**, including preparing inputs, structuring job directories, and generating automated job manifests. 
-* **Leverage CHTC’s GPU capacity for high-throughput structure prediction**, including selecting appropriate resources based on input complexity. 
+* **Leverage the OSPool’s GPU capacity for high-throughput structure prediction**, including selecting appropriate resources based on input complexity. 
 * **Use containers, staged databases, and HTCondor data-transfer** mechanisms to build reproducible, portable, and scalable AF3 workflows. 
 * **Submit and monitor hundreds to thousands of AF3 jobs**, using standard HTCondor patterns and best practices for reliable execution on distributed compute sites.
 
@@ -37,12 +37,12 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
 * [Introduction](#introduction)
 * [Tutorial Setup](#tutorial-setup)
 * [Understanding the AlphaFold3 Workflow](#understanding-the-alphafold3-workflow)
-* [Running AlphaFold3 on CHTC](#running-alphafold3-on-chtc)
+* [Running AlphaFold3 on the OSPool](#running-alphafold3-on-the-ospool)
   + [Set Up Your Software Environment](#set-up-your-software-environment)
   + [Data Wrangling and Preparing AlphaFold3 Inputs](#data-wrangling-and-preparing-alphafold3-inputs)
   + [Preparing Your _List of (AlphaFold) Jobs_](#preparing-your-list-of-alphafold-jobs)
   + [Submit Your AlphaFold3 Jobs - CPU-Intensive Alignment Generation (Step 1)](#submit-your-alphafold3-jobs---cpu-intensive-alignment-generation-step-1)
-	 - [AlphaFold3 Databases Availability on CHTC](#alphafold3-databases-availability-on-chtc)
+	 - [AlphaFold3 Databases Availability on the OSPool](#alphafold3-databases-availability-on-the-ospool)
   + [Submit Your AlphaFold3 Jobs - GPU-Accelerated Structural Prediction (Step 2)](#submit-your-alphafold3-jobs---gpu-accelerated-structural-prediction-step-2)
   + [Visualize Your AlphaFold3 Results](#visualize-your-alphafold3-results)
 * [Next Steps](#next-steps)
@@ -65,35 +65,32 @@ All of these steps run across hundreds (or thousands) of jobs using the HTCondor
 
 You will need the following before moving forward with the tutorial:
 
-1. [X] A CHTC HTC account. If you do not have one, request access at the [CHTC Account Request Page](https://chtc.cs.wisc.edu/uw-research-computing/form.html).
-1. [X] A CHTC "staging" folder. 
-2. [X] Basic familiarity with HTCondor job submission. If you are new to HTCondor, complete the CHTC ["Roadmap to getting started
-"](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and read the ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission).
+1. [X] An OSPool account. If you do not have one, request access at the [OSPool Account Request Page]([https://ospool.cs.wisc.edu/uw-research-computing/form.html](https://portal.osg-htc.org/application)).
+1. [X] An OSPool `/ospool/ap4x/data/<username>/` folder. 
+2. [X] Basic familiarity with HTCondor job submission. If you are new to HTCondor, complete the OSPool ["Roadmap to getting started
+"](https://portal.osg-htc.org/documentation/htc_workloads/workload_planning/roadmap/) and read the ["Submit Jobs to the OSPool using HTCondor"](https://portal.osg-htc.org/documentation/htc_workloads/workload_planning/htcondor_job_submission/).
 3. [X] AlphaFold3 Model Weights. Request the AF3 model weights from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters).
-
-> [!WARNING]
-> Requesting AlphaFold3 model weights requires agreeing to DeepMind's terms of service. Ensure you comply with all licensing and usage restrictions when using AF3 for research. This tutorial does not distribute AF3 model weights. **Requesting the weights can take up to several weeks.** Ensure you have them before starting the tutorial.
 
 This tutorial also assumes that you:
 
 * Have basic command-line experience (e.g., navigating directories, using bash, editing text files)
-* Have sufficient disk quota and file permissions in your CHTC `/home` and `/staging` directories
+* Have sufficient disk quota and file permissions in your OSPool `/ospool/ap4x/data/<username>/` and `/home/<username>/` directories
 
 > [!NOTE]
-> If you are new to running jobs on CHTC, complete the CHTC ["Roadmap to getting started
-"](https://chtc.cs.wisc.edu/uw-research-computing/htc-roadmap/) and our ["Practice: Submit HTC Jobs using HTCondor"](https://chtc.cs.wisc.edu/uw-research-computing/htcondor-job-submission) guide before starting this tutorial.
+> If you are new to running jobs on the OSPool, complete the OSPool ["Roadmap to getting started
+"](https://portal.osg-htc.org/documentation/htc_workloads/workload_planning/roadmap/) and read the ["Submit Jobs to the OSPool using HTCondor"](https://portal.osg-htc.org/documentation/htc_workloads/workload_planning/htcondor_job_submission/) guide before starting this tutorial.
 
 ### Time Estimation
-Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline execution typically takes 30 minutes or more depending on sequence length, alignment depth, database location, and cluster load. Small test runs using `USE_SMALL_DB=1` often complete in 10–30 minutes.
+Estimated time: plan ~1–2 hours for the tutorial walkthrough. Each pipeline execution typically takes 30 minutes or more depending on sequence length, alignment depth, database location, and pool load. Small test runs using `USE_SMALL_DB=1` often complete in 10–30 minutes.
 
 The data-pipeline stage can be run with different CPU/worker settings. Single-core mode improves matchability and can increase overall throughput across many independent jobs, but each individual job may take substantially longer. For full-database jobs in single-core mode, expect runtimes of 1.5+ hours per query sequence, and potentially longer for conserved proteins with deep alignments.
 
 ### Clone the Tutorial Repository
 
-1. Log into your CHTC account:
+1. Log into your OSPool account:
     
     ```bash
-    ssh user.name@ap####.chtc.wisc.edu
+    ssh user.name@ap##.osg-htc.org
     ```
 
 2. To obtain a copy of the tutorial files, you can:
@@ -101,21 +98,21 @@ The data-pipeline stage can be run with different CPU/worker settings. Single-co
 * Clone the repository:
 
   ```bash
-  git clone https://github.com/CHTC/tutorial-CHTC-AF3.git
-  cd tutorial-CHTC-AF3/
+  git clone https://github.com/osg-htc/tutorial-OSPool-AF3.git
+  cd tutorial-OSPool-AF3/
   ```
 
-3. Create a directory in your `/staging/<netid>/` path titled `tutorial-CHTC-AF3`.
+3. Create a directory in your `/ospool/ap##/data/<username>/` path titled `tutorial-OSPool-AF3`.
 
     ```bash
-    mkdir -p /staging/<netid>/tutorial-CHTC-AF3/
+    mkdir -p /ospool/ap##/data/<username>/tutorial-OSPool-AF3/
     ```
   
-4. Upload your AlphaFold3 Model Weights (`af3.bin.zst`) to `/staging/<netID>/tutorial-CHTC-AF3/`
+4. Upload your AlphaFold3 Model Weights (`af3.bin.zst`) to `/ospool/ap##/data/<username>/tutorial-OSPool-AF3/`
 
-    You should upload your AlphaFold3 model weights (`af3.bin.zst`) to this path. If you do not already have them, you will need to obtain them from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters). **You MUST have these weights before proceeding as they are required to run the inference pipeline of AlphaFold3.** Model weights can take several days to weeks to be approved. 
+    You should upload your AlphaFold3 model weights (`af3.bin.zst`) to this path. If you do not already have them, you will need to obtain them from the [DeepMind AlphaFold Team](https://github.com/google-deepmind/alphafold3/blob/main/docs/installation.md#obtaining-model-parameters). **You MUST have these weights before proceeding as they are required to run the inference pipeline of AlphaFold3.** 
 
-    You can upload your `af3.bin.zst` using `scp`, `sftp`, `rsync` or another file transfer client, such as Cyberduck or WinSCP. For more information about uploading files to CHTC, visit our [Transfer Files between CHTC and your Computer](https://chtc.cs.wisc.edu/uw-research-computing/transfer-files-computer) guide. 
+    You can upload your `af3.bin.zst` using `scp`, `sftp`, `rsync` or another file transfer client, such as Cyberduck or WinSCP. For more information about uploading files to the OSPool, visit our [Data Staging and Transfer to Jobs](https://portal.osg-htc.org/documentation/htc_workloads/managing_data/overview/) guide. 
 
 #### About the Dataset
 
@@ -191,9 +188,9 @@ The full list of alignment sources is as follows:
 
 > [!TIP]
 > **Interested in contributing your alignments to the library?**
-> AlphaFold3 data pipeline jobs that are ran with the `--use-cached-msa` flag will automatically contribute their generated MSAs to the alignment library, along with metadata about the source and provenance of the alignment. If you want to contribute alignments from previous runs, or from runs that were not ran with the `--use-cached-msa` flag, please contact the PATh team at [support@osg-htc.org](mailto:support@osg-htc.org) for guidance on how to contribute your alignments to the library.
+> AlphaFold3 data pipeline jobs that are ran with the `--use-cached-msa` flag will automatically contribute their generated MSAs to the alignment library, along with metadata about the source and provenance of the alignment. If you want to contribute alignments from previous runs, or from runs that were not ran with the `--use-cached-msa` flag, please contact the Research Computing Facilitation team at [support@osg-htc.org](mailto:support@osg-htc.org) for guidance on how to contribute your alignments to the library.
 
-You can learn more about the alignment library and caching mechanism in the [OSG/PATh documentation](https://path-cc.io/alignments/).
+You can learn more about the alignment library and caching mechanism in the [AlphaFold3 Alignment Library](https://osg-htc.org/services/osdf/alphafold) page.
 
 ### The GPU-Accelerated Pipeline: Structural Prediction (Stage 2)
 Once the data pipeline has produced MSAs and templates, AF3’s second stage uses this information to generate atomic-resolution structural models.
@@ -208,10 +205,10 @@ Notes:
 - Inference is GPU-bound and requires selecting GPUs with sufficient memory for your token count. You can learn more about our recommended GPU memory requirements by reviewing the [Key AF3 GPU considerations](#key-af3-gpu-considerations) section at the end of this tutorial. 
 - Use unified memory mode for very large jobs (see the `--enable_unified_memory` option), but expect slower performance.
 
-## Running AlphaFold3 on CHTC
+## Running AlphaFold3 on the OSPool
 
 ### Set Up Your Software Environment
-CHTC provides a shared Apptainer container for AF3 (recommended). If you prefer a custom image, build a Docker image locally and convert it to an Apptainer image on the Access Point (steps below).
+The OSPool provides a shared Apptainer container for AF3 (recommended). If you prefer a custom image, build a Docker image locally and convert it to an Apptainer image on the Access Point (steps below).
 
 <details>
 <summary>Click to expand: Building Your Own AlphaFold3 Apptainer Container (Advanced)</summary>
@@ -241,11 +238,17 @@ CHTC provides a shared Apptainer container for AF3 (recommended). If you prefer 
     docker push <your-dockerhub-username>/alphafold3:latest
     ```
    
-5. On your CHTC Access Point, pull the docker image and convert it to an Apptainer image:
+5. On your OSPool Access Point, pull the docker image and convert it to an Apptainer image:
 
     ```bash
     apptainer build alphafold3.sif docker://<your-dockerhub-username>/alphafold3:latest
    ```
+   
+> [!NOTE]
+> **Use of the OSPool-Supported AlphaFold3 Container is highly recommended.**
+> The OSPool-Supported AlphaFold3 container contains several customizations to improve the user experience and thoughput on the OSPool. 
+> This is especially important for use of the AlphaFold3 Alignment Library, as contributed alignments **must** use the supported 
+> container for reproducability. If you have any questions, please contact the Research Computing Facilitation team. 
 </details>
 
 ### Data Wrangling and Preparing AlphaFold3 Inputs
@@ -390,7 +393,7 @@ Our data manifest file (`input.csv`) comes with four scenarios already. If you w
 To submit multiple AlphaFold3 jobs using HTCondor, you can create a "list of jobs" file that contains the names of each job directory you plan to run. This file will be used in your HTCondor submit file to specify which jobs to execute. If you are using the above helper script to generate your job directories, your list of jobs files will be generated automatically. If you are creating your own job directories, you can generate this file by listing the job directories in your `AF3_Jobs/` directory. The helper script will also generate a similar list of jobs files for your inference pipeline, which will be used in the second stage of the tutorial. This second file contains the same job information, plus additional columns that specify the minimum GPU memory requirements for each job, which will be used to request the appropriate GPU resources for each inference job. 
 
 > [!NOTE]  
-> Each line in `list_of_af3_jobs.txt` corresponds to a single AlphaFold3 job that will be executed using HTCondor. You can modify this file to add or remove jobs as needed. This file, functionally, is a one-column comma-separated values (CSV) file where each line represents a job name. You could add additional columns to this file if you wanted to pass more variables to your HTCondor jobs. For other ways to submit multiple jobs, see the CHTC documentation: [Submit Multiple Jobs Using HTCondor](https://chtc.cs.wisc.edu/uw-research-computing/multiple-jobs.html). 
+> Each line in `list_of_af3_jobs.txt` corresponds to a single AlphaFold3 job that will be executed using HTCondor. You can modify this file to add or remove jobs as needed. This file, functionally, is a one-column comma-separated values (CSV) file where each line represents a job name. You could add additional columns to this file if you wanted to pass more variables to your HTCondor jobs. For other ways to submit multiple jobs, see the OSPool documentation: [Submit Multiple Jobs Using HTCondor](https://portal.osg-htc.org/documentation/htc_workloads/submitting_workloads/submit-multiple-jobs/). 
 
 <details><summary>Click to expand: Building Your Own List of Jobs File</summary> 
 
@@ -425,60 +428,65 @@ The data-pipeline stage prepares all alignments, templates, and features needed 
 
 ![Overview of the AlphaFold3 Data Pipeline](.images/data_pipeline.png)
 
-1. Change to your `tutorial-CHTC-AF3/` directory:
+1. Change to your `tutorial-OSPool-AF3/` directory:
     ```bash
-    cd ~/tutorial-CHTC-AF3/
+    cd ~/tutorial-OSPool-AF3/
    ```
 2. Review the Data Pipeline executable script `scripts/data_pipeline.sh`. For this tutorial, no changes will be necessary. However, **when you are ready to run your own jobs, please review the details in [link to section](#overview-alphafold3-data-pipeline-executable-data-only-stage)**, as your AF3 jobs may require additional non-default options.
 
 3. Create your submit file `data_pipeline.sub` in the top level of the cloned repository. The submit file below works out-of-the-box if you've setup your directories as specified in section [Setting Up AlphaFold3 Input JSONs and Job Directories](#data-wrangling-and-preparing-alphafold3-inputs)). You can specify additional parameters for the executable in the `arguments` attribute as needed. 
 
     ```bash
-	# CHTC maintained container for AlphaFold3 as of December 2025
-	# Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
-	container_image = osdf:///osg-public/containers/alphafold3-custom-v6.sif
-	
-	executable = scripts/data_pipeline.sh
-	
-	log = ./logs/data_pipeline.log
-	output = data_pipeline_$(Cluster)_$(Process).out
-	error  = data_pipeline_$(Cluster)_$(Process).err
-	
-	initialdir = AF3_Jobs/$(my_directory)
-	transfer_input_files = data_inputs/
-	
-	# transfer output files back to the submit node
-	transfer_output_files = data_pipeline.tar.gz
-	transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
-	
-	should_transfer_files = YES
-	when_to_transfer_output = ON_EXIT
-	
-	# We need this to transfer the databases to the execute node
-	Requirements = (Target.HasCHTCStaging == true) && (TARGET.HasAlphafold3 == true)
-	
-	# We use this condition for internal logic and reporting, please do not remove.
-	+is_alphafold3 = true
-	
-	if defined USE_SMALL_DB
- 	 # testing requirements
- 	 request_memory = 8GB
- 	 request_disk = 16GB
- 	 request_cpus = 4
- 	 arguments = --smalldb --work_dir_ext $(Cluster)_$(Process) --verbose
-	else
-	  # full requirements
-	  request_memory = 24GB
- 	 # Request less disk if matched machine already has AF3 DB preloaded (650GB savings)
-	  request_disk = 700000000 - ( (TARGET.HasAlphafold3?: 1) * 650000000)
-	  request_cpus = 8
- 	 arguments = "--work_dir_ext $(Cluster)_$(Process) --cache_api_key <API_KEY> --use-cached-msa --msa_cpus_per_worker 1 --cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'"
-	endif
-	
-	queue my_directory from list_of_af3_jobs.txt
+	# OSPool maintained container for AlphaFold3 as of December 2025
+    container_image = osdf:///osg-public/containers/alphafold3-custom-v6.sif
+    
+    executable = scripts/data_pipeline.sh
+    
+    log = ./logs/data_pipeline.log
+    output = data_pipeline_$(Cluster)_$(Process).out
+    error  = data_pipeline_$(Cluster)_$(Process).err
+    
+    initialdir = AF3_Jobs/$(my_directory)
+    transfer_input_files = data_inputs/
+    
+    # transfer output files back to the access point
+    transfer_output_files = data_pipeline.tar.gz
+    transfer_output_remaps = "data_pipeline.tar.gz=inference_inputs/$(my_directory).data_pipeline.tar.gz"
+    
+    should_transfer_files = YES
+    when_to_transfer_output = ON_EXIT
+    
+    # Match only to execution points that advertise a pre-staged copy of the
+    # AlphaFold3 reference databases at /alphafold3. Without this, a job would have
+    # to pull and extract ~650GB of databases into its own scratch space, which is
+    # not a viable request on the OSPool.
+    Requirements = (TARGET.HasAlphafold3 == true)
+    
+    # We use this condition for internal logic and reporting, please do not remove.
+    +is_alphafold3 = true
+    
+    if defined USE_SMALL_DB
+      # testing requirements
+      request_memory = 8GB
+      request_disk = 16GB
+      request_cpus = 2
+      transfer_input_files = data_inputs/, osdf:///osg-public/data/alphafold3_db_small.tar.gz
+      arguments = "--smalldb --work_dir_ext $(Cluster)_$(Process) --msa_cpus_per_worker 1 --msa_workers 2 --verbose"
+    else
+      # full requirements
+      request_memory = 2 GB
+      retry_request_memory = 8GB, 16GB, 32GB, 64GB
+      # The databases are already on the machine (see Requirements above), so the
+      # job only needs room for the container, its inputs, and af_output.
+      request_disk = 15GB
+      request_cpus = 2
+      arguments = "--work_dir_ext $(Cluster)_$(Process) --use-cached-msa --cache_api_key <API_KEY> --cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'"
+    endif
+    
+    queue my_directory from list_of_af3_jobs.txt
    ```
 
-In the full-database example above, each data-pipeline job requests 8 CPUs and passes `--msa_cpus_per_worker 1` to the wrapper, so each MSA search uses a single CPU. For maximum opportunistic matchability, you can instead request one CPU and run with `--msa_workers 1`; this single-core mode is slower per job but may allow more jobs to run at once. The `--cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'` specifies a list of opt-in sources you would like to pull pre-computed alignment from. Learn more at [https://osg-htc.org/services/osdf/alphafold](https://osg-htc.org/services/osdf/alphafold). It is important that you include an API Key, in order to use the API please contact us at chtc@cs.wisc.edu and request a key. 
+In the full-database example above, each data-pipeline job requests 8 CPUs and passes `--msa_cpus_per_worker 1` to the wrapper, so each MSA search uses a single CPU. For maximum opportunistic matchability, you can instead request one CPU and run with `--msa_workers 1`; this single-core mode is slower per job but may allows signficiantly more jobs to run at once. The `--cache_preferred_sources 'Community Contributed - Cached, OSG-Generated'` specifies a list of opt-in sources you would like to pull pre-computed alignment from. Learn more at [https://osg-htc.org/services/osdf/alphafold](https://osg-htc.org/services/osdf/alphafold). It is important that you include an API Key, in order to use the API please contact us at chtc@cs.wisc.edu and request a key. 
 
 This submit file will read the contents of `list_of_af3_jobs.txt`, iterate through each line, and assign the value of each line to the variable `$(my_directory)`. This allows you to programmatically submit _N_ jobs, where _N_ equals the number of AlphaFold3 job directories you previously created. Each job processes one AlphaFold3 job directory and uses the CHTC-maintained AlphaFold3 container image, which is transferred to the Execution Point (EP) by HTCondor.
 
@@ -532,9 +540,9 @@ Once the data-pipeline jobs have finished generating alignments and features, th
 
 ![Overview of the AlphaFold3 Inference Pipeline](.images/inference_pipeline.png)
 
-1. Change to your `tutorial-CHTC-AF3/` directory:
+1. Change to your `tutorial-OSPool-AF3/` directory:
     ```bash
-    cd ~/tutorial-CHTC-AF3/
+    cd ~/tutorial-OSPool-AF3/
    ```
 
 2. Review your Data Pipeline executable script `scripts/inference_pipeline.sh`. Generally, no changes will be necessary. However, **when you are ready to run your own jobs, please review the details in [link to section](#overview-alphafold3-inference-pipeline-executable)**, as your AF3 jobs may require additional non-default options.
@@ -542,16 +550,14 @@ Once the data-pipeline jobs have finished generating alignments and features, th
 3. Create your submit file `inference_pipeline.sub`. You will need to edit the `MODEL_WEIGHT_PATH` **and** `gpus_minimum_memory`. You can specify additional parameters for the executable in the `arguments` attribute as needed. 
 
     ```bash
-	   # CHTC maintained container for AlphaFold3 as of December 2025
-	# Can use the local CHTC copy at file:///staging/groups/chtc_staff/containers/alphafold3.minimal.22Jan2025.sif
-	#container_image = osdf:///osg-public/containers/alphafold3.minimal.22Jan2025.sif
+	   # OSPool maintained container for AlphaFold3 as of December 2025
 	container_image = osdf:///osg-public/containers/alphafold3-custom-v6.sif
 	
 	executable = scripts/inference_pipeline.sh
 	
 	environment = "myjobdir=$(my_directory)"
 	
-	MODEL_WEIGHTS_PATH = /staging/<n>/<NetID>/tutorial-CHTC-AF3/af3.bin.zst
+	MODEL_WEIGHTS_PATH = /ospool/ap##/data/tutorial-OSPool-AF3/af3.bin.zst
 	
 	log = ./logs/inference_pipeline.log
 	output = inference_pipeline_$(Cluster)_$(Process).out
@@ -560,7 +566,7 @@ Once the data-pipeline jobs have finished generating alignments and features, th
 	initialdir = AF3_Jobs/$(my_directory)
 	
 	# transfer all files in the inference_inputs directory
-	transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
+	transfer_input_files = inference_inputs/, osdf:///$(MODEL_WEIGHTS_PATH)
 	
 	should_transfer_files = YES
 	when_to_transfer_output = ON_EXIT
@@ -571,15 +577,10 @@ Once the data-pipeline jobs have finished generating alignments and features, th
 	request_cpus = 1
 	request_gpus = 1
 	
-	# Use the CHTC recommended AF3 memory requirement based on the number of tokens
+	# Use the OSPool recommended AF3 memory requirement based on the number of tokens
 	gpus_minimum_memory = $(AF3_vRAM) GB
 	
-	# short jobs 4-6 hours so it is okay to use is_resumable
-	+GPUJobLength = "short"
-	+WantGPULab = true
-	+is_resumable = true
-	want_ospool = true
-
+   +JobDurationCategory = "Medium"
 	+is_alphafold3 = true
 	
 	# Use --user-specified-alphafold-options to pass any extra options to AlphaFold3, such as
@@ -590,7 +591,7 @@ Once the data-pipeline jobs have finished generating alignments and features, th
    ```
 
     > [!IMPORTANT]  
-    > Make sure to update the `MODEL_WEIGHTS_PATH` variable to point to the location of your `af3.bin.zst` model weights file in your CHTC staging directory. This path should be the same as where you uploaded your model weights in step 4 of the [Clone the Tutorial Repository](#clone-the-tutorial-repository) section. For example, if your CHTC netID is `bbdager`, and you uploaded your model weights to `/staging/bbdager/tutorial-CHTC-AF3/af3.bin.zst`, then you should set `MODEL_WEIGHTS_PATH = /staging/bbdager/tutorial-CHTC-AF3/af3.bin.zst` in your submit file.
+    > Make sure to update the `MODEL_WEIGHTS_PATH` variable to point to the location of your `af3.bin.zst` model weights file in your CHTC staging directory. This path should be the same as where you uploaded your model weights in step 4 of the [Clone the Tutorial Repository](#clone-the-tutorial-repository) section. For example, if your CHTC netID is `bbdager`, and you uploaded your model weights to `/staging/bbdager/tutorial-OSPool-AF3/af3.bin.zst`, then you should set `MODEL_WEIGHTS_PATH = /staging/bbdager/tutorial-OSPool-AF3/af3.bin.zst` in your submit file.
 
 This submit file will read the contents of `list_of_af3_jobs.txt`, iterate through each line, and assign the value of each line to the variable `$(my_directory)`. This allows you to programmatically submit _N_ jobs, where _N_ equals the number of AlphaFold3 job directories you previously created. Each job processes one AlphaFold3 job directory and uses the CHTC-maintained AlphaFold3 container image, which is transferred to the Execution Point (EP) by HTCondor.
 
@@ -639,7 +640,7 @@ AlphaFold3 generates a variety of output files, including predicted 3D structure
 1. Once your inference pipeline jobs have completed successfully, `exit` the Access Point SSH session and return to your local machine.:
 
     ```bash
-    [bbdager@ap2002 tutorial-CHTC-AF3]$ exit
+    [bbdager@ap2002 tutorial-OSPool-AF3]$ exit
     logout
     Shared connection to ap2002.chtc.wisc.edu closed.
     Bucky@MyLaptop ~ % 
@@ -650,7 +651,7 @@ AlphaFold3 generates a variety of output files, including predicted 3D structure
 2. For each job directory, download and extract the `<job_name>.inference_pipeline.tar.gz` file to your local machine:
 
     ```bash
-    scp <netID>@ap2002.chtc.wisc.edu:~/tutorial-CHTC-AF3/AF3_Jobs/Job1_ProteinA/Job1_ProteinA.inference_pipeline.tar.gz ./
+    scp <netID>@ap2002.chtc.wisc.edu:~/tutorial-OSPool-AF3/AF3_Jobs/Job1_ProteinA/Job1_ProteinA.inference_pipeline.tar.gz ./
     tar -xzvf Job1_ProteinA.inference_pipeline.tar.gz
     ```
    
