@@ -272,6 +272,19 @@ if [  ${CUDA_CAPABILITY%.*} -eq 7 ] ; then
   EXTRA_APPTAINER_ENV="--env XLA_FLAGS=${XLA_FLAGS}"
 fi
 
+# Extra hand holding for DGX Spark (GB10) unified-memory systems
+GPU_NAME=$(${IMG_EXE_CMD} nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)
+printinfo "GPU_NAME       : ${GPU_NAME}"
+if [[ "${GPU_NAME}" == *"GB10"* ]]; then
+  printverbose "Detected DGX Spark (GB10); enabling unified memory"
+  USE_UNIFIED_MEMORY="true"
+  MEM_FRACTION="${MEM_FRACTION:-0.95}"
+  if awk -v f="${MEM_FRACTION}" 'BEGIN { exit !(f > 1.0) }'; then
+    printerr "MEM_FRACTION (${MEM_FRACTION}) exceeds 1.0 on DGX Spark;" \
+             "unified memory is shared with the CPU and may be exhausted"
+  fi
+fi
+
 # Enable unified memory if requested
 if [[ "${USE_UNIFIED_MEMORY:-}" == "true" ]] ; then
   printverbose "Enabling unified memory for Alphafold3 inference"
