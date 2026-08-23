@@ -78,20 +78,60 @@ AF3_MSA_WORKERS="${PYTHON_CPU_COUNT:-1}"
 # Default: PYTHON_CPU_COUNT if set, otherwise 8.
 AF3_HMMSEARCH_N_CPU="${PYTHON_CPU_COUNT:-8}"
 
-# Check for pre-staged Alphafold3 database
-if [ -f .machine.ad ]; then
-  if grep -q 'HasAlphafold3\s*=\s*true' .machine.ad; then
-    if [ -d "/alphafold3" ] && [ "$(ls -A /alphafold3)" ]; then
-      printinfo "Host has HasAlphafold3=true and /alphafold3/ is populated."
-      EXTRACTED_DATABASE_PATH="/alphafold3"
+# HTCondor machine ClassAd
+MACHINE_AD="${_CONDOR_MACHINE_AD:-.machine.ad}"
+
+# Check for pre-staged AlphaFold3 database advertised by the execute point
+if [ -f "${MACHINE_AD}" ]; then
+
+  # Prefer the newer SharedDatasets advertisement if it exists.
+  if grep -qE '^[[:space:]]*SharedDatasets[[:space:]]*=' "${MACHINE_AD}"; then
+
+    # Extract the quoted value of SharedDatasets from the machine ClassAd.
+    SHARED_DATASETS="$(
+      sed -nE \
+        's/^[[:space:]]*SharedDatasets[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' \
+        "${MACHINE_AD}" \
+        | head -n 1
+    )"
+
+    # Look for an AF3=<path> entry in SharedDatasets.
+    if [[ "${SHARED_DATASETS}" =~ (^|[,;])[[:space:]]*AF3=([^,;]+) ]]; then
+      AF3_DATABASE_PATH="${BASH_REMATCH[2]}"
+
+      # Remove leading/trailing whitespace.
+      AF3_DATABASE_PATH="${AF3_DATABASE_PATH#"${AF3_DATABASE_PATH%%[![:space:]]*}"}"
+      AF3_DATABASE_PATH="${AF3_DATABASE_PATH%"${AF3_DATABASE_PATH##*[![:space:]]}"}"
+
+      if [ -d "${AF3_DATABASE_PATH}" ] && [ "$(ls -A "${AF3_DATABASE_PATH}")" ]; then
+        printinfo "Host advertises AF3 dataset at ${AF3_DATABASE_PATH}."
+        EXTRACTED_DATABASE_PATH="${AF3_DATABASE_PATH}"
+      else
+        printinfo "Host advertises AF3=${AF3_DATABASE_PATH}, but the directory does not exist or is empty — will copy and extract databases locally."
+      fi
+
     else
-      printinfo "Host has HasAlphafold3=true but /alphafold3/ is empty — contact your system administrator at chtc@cs.wisc.edu."
+      printinfo "Host advertises SharedDatasets, but no AF3 dataset is listed — will copy and extract databases locally."
     fi
+
+  # Legacy fallback for execute points that do not yet advertise SharedDatasets.
   else
-    printinfo "Host does not advertise HasAlphafold3=true — will copy and extract databases locally."
+    printinfo "Host does not advertise SharedDatasets — checking legacy HasAlphafold3 advertisement."
+
+    if grep -qE '^[[:space:]]*HasAlphafold3[[:space:]]*=[[:space:]]*true' "${MACHINE_AD}"; then
+      if [ -d "/alphafold3" ] && [ "$(ls -A /alphafold3)" ]; then
+        printinfo "Host has HasAlphafold3=true and /alphafold3/ is populated."
+        EXTRACTED_DATABASE_PATH="/alphafold3"
+      else
+        printinfo "Host has HasAlphafold3=true but /alphafold3/ does not exist or is empty — contact your system administrator at chtc@cs.wisc.edu."
+      fi
+    else
+      printinfo "Host does not advertise HasAlphafold3=true — will copy and extract databases locally."
+    fi
   fi
+
 else
-  printinfo "No .machine.ad found — cannot verify HasAlphafold3, proceeding with copy + extraction."
+  printinfo "No machine ClassAd found — cannot check for pre-staged AlphaFold3 databases, proceeding with copy + extraction."
 fi
 
 ARGS="$@"
