@@ -335,12 +335,40 @@ fi
 
 printverbose "Finished running Alphafold3 inference pipeline. Packing up output dir"
 shopt -s nullglob # we do not want an empty match below
-for output_dir in "${WORK_DIR}/af_output"/*/ ;
-do
-  output_name_base="$(basename ${output_dir})"
-  printverbose "Compressing : $output_name_base"
-  tar zcf "${output_name_base}".inference_pipeline.tar.gz -C "${output_dir}" .
-done
+
+output_dirs=( "${WORK_DIR}/af_output"/*/ )
+
+if (( ${#output_dirs[@]} == 0 )); then
+    printerr "Alphafold3 inference completed but no output directory was produced"
+    exit 1
+fi
+
+if (( ${#output_dirs[@]} > 1 )); then
+    printerr "Multiple Alphafold3 output directories detected (${#output_dirs[@]}). Co-packaging all outputs into inference_pipeline.tar.gz"
+    printstd "Multiple Alphafold3 output directories detected (${#output_dirs[@]}). Co-packaging all outputs into inference_pipeline.tar.gz"
+
+    tar zcf inference_pipeline.tar.gz -C "${WORK_DIR}/af_output" . \
+        || exitcode=$?
+
+    # PROPAGATE ERROR BACK TO HTCONDOR
+    if (( exitcode != 0 )); then
+        printerr "Failed to package Alphafold3 inference outputs with exit code ${exitcode}"
+        exit "$exitcode"
+    fi
+else
+    output_dir="${output_dirs[0]}"
+
+    printverbose "Compressing ${output_dir} to inference_pipeline.tar.gz"
+
+    tar zcf inference_pipeline.tar.gz -C "${output_dir}" . \
+        || exitcode=$?
+
+    # PROPAGATE ERROR BACK TO HTCONDOR
+    if (( exitcode != 0 )); then
+        printerr "Failed to package Alphafold3 inference output with exit code ${exitcode}"
+        exit "$exitcode"
+    fi
+fi
 
 # clean up
 printverbose "Cleaning up working directory"
