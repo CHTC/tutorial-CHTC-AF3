@@ -20,6 +20,8 @@ transfer_input_files = inference_inputs/, osdf:///chtc/$(MODEL_WEIGHTS_PATH)
 
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
+on_exit_hold = (ExitCode != 0)
+on_exit_hold_reason = "Non-zero Exit Code - Check Error and Output files."
 
 request_memory = 8GB
 # need space for the container (3GB) as well
