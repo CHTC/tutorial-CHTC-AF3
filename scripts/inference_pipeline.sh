@@ -273,10 +273,18 @@ if [  ${CUDA_CAPABILITY%.*} -eq 7 ] ; then
 fi
 
 # Extra hand holding for DGX Spark (GB10) unified-memory systems
-GPU_NAME=$(${IMG_EXE_CMD} nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)
+GPU_NAME=$(awk -F' = ' '
+  $1 == "GPUs_DeviceName" {
+    gsub(/^"|"$/, "", $2)
+    print $2
+    exit
+  }
+' "$_CONDOR_MACHINE_AD")
+
 printinfo "GPU_NAME       : ${GPU_NAME}"
+
 if [[ "${GPU_NAME}" == *"GB10"* ]]; then
-  printverbose "Detected DGX Spark (GB10); enabling unified memory"
+  printinfo "DGX Spark (GB10) detected; enabling unified memory. DGX support is still experimental and may not work for all workloads. If you encounter issues, please contact the developers."
   USE_UNIFIED_MEMORY="true"
   MEM_FRACTION="${MEM_FRACTION:-0.95}"
   if awk -v f="${MEM_FRACTION}" 'BEGIN { exit !(f > 1.0) }'; then
@@ -284,6 +292,7 @@ if [[ "${GPU_NAME}" == *"GB10"* ]]; then
              "unified memory is shared with the CPU and may be exhausted"
   fi
 fi
+
 
 # Enable unified memory if requested
 if [[ "${USE_UNIFIED_MEMORY:-}" == "true" ]] ; then
