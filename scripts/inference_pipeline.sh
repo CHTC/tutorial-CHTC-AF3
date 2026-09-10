@@ -284,7 +284,7 @@ GPU_NAME=$(awk -F' = ' '
 printinfo "GPU_NAME       : ${GPU_NAME}"
 
 if [[ "${GPU_NAME}" == *"GB10"* ]]; then
-  printinfo "DGX Spark (GB10) detected; enabling unified memory. DGX support is still experimental and may not work for all workloads. If you encounter issues, please contact the developers."
+  printinfo "DGX Spark (GB10) detected; enabling unified memory. DGX support is still experimental and may not work for all workloads. If you encounter issues, please contact your system administrators"
   USE_UNIFIED_MEMORY="true"
   MEM_FRACTION="${MEM_FRACTION:-0.95}"
   if awk -v f="${MEM_FRACTION}" 'BEGIN { exit !(f > 1.0) }'; then
